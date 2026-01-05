@@ -19,44 +19,34 @@ export default function ChatInterface({ workoutLogId, exerciseName, onClose }) {
 
   useEffect(scrollToBottom, [messages]);
 
-  // 1. INIT SESSION (MATCHING YOUR DB SCHEMA)
+  // 1. INIT SESSION
   useEffect(() => {
     const initSession = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // FIX: Use 'patient_id' and 'workout_log_id' to match your table
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('chat_sessions')
         .insert([{ 
-            patient_id: user.id,        // <--- Was user_id
-            workout_log_id: workoutLogId // <--- Now connecting the specific workout!
+            patient_id: user.id,
+            workout_log_id: workoutLogId
         }])
         .select()
         .single();
 
-      if (error) {
-          console.error("Error creating session:", error);
-      } else if (data) {
+      if (data) {
         setSessionId(data.id);
-        // Save initial greeting
-        saveMessageToDB(data.id, 'ai', `Great job completing your ${exerciseName}! How does your body feel?`);
+        //probably dont need to save the intial message?
+        //saveMessageToDB(data.id, 'ai', `Great job completing your ${exerciseName}! How does your body feel?`);
       }
     };
     initSession();
-  }, []); // Run once on mount
+  }, []);
 
-  // 2. SAVE MESSAGES (MATCHING YOUR DB SCHEMA)
   const saveMessageToDB = async (sessId, sender, text) => {
     if (!sessId) return;
-    
-    // FIX: Use 'context' column for the message text
     await supabase.from('chat_messages').insert([
-      { 
-          session_id: sessId, 
-          sender: sender, 
-          context: text // <--- Mapping text to your 'context' column
-      }
+      { session_id: sessId, sender: sender, context: text }
     ]);
   };
 
@@ -69,39 +59,45 @@ export default function ChatInterface({ workoutLogId, exerciseName, onClose }) {
     setInputText("");
     setIsTyping(true);
 
-    // Save to DB immediately
     if (sessionId) saveMessageToDB(sessionId, 'user', userText);
 
     try {
       if (!GEMINI_API_KEY) throw new Error("Missing API Key");
 
-      // 3. CALL GEMINI (Smart JSON Mode)
+      // 2. CALL GEMINI 2.5 FLASH (As requested)
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            // SAFETY: Ensure medical/pain context isn't blocked
+            safetySettings: [
+                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+            ],
             contents: [{
               parts: [{
-                text: `You are a warm, reassuring Physical Therapy Assistant for an elderly patient.
+                text: `You are a warm, reassuring Physical Therapy Assistant.
                 The patient just finished ${exerciseName}.
                 Patient said: "${userText}".
 
-                Your task:
-                1. Infer a pain score from 0–10 based on the patient’s words.
-                   - 0 = no pain
-                   - 1–3 = mild discomfort or soreness
-                   - 4–6 = moderate pain that limits movement
-                   - 7–8 = severe pain, hard to continue
-                   - 9–10 = extreme or unbearable pain
-                2. If the patient is vague, estimate conservatively using their language.
-                3. Always note that you are recording this for their therapist or doctor.
-                4. Be polite, clear, and encouraging. Avoid slang.
-                5. If pain is 4 or higher, gently suggest rest.
-                6. Keep the spoken response to a maximum of 2 sentences.
+                YOUR LOGIC TASK:
+                1. IF the patient says they feel "good", "fine", "great", or "no pain":
+                   - Assign "pain_score": 0
+                   - Message: Be encouraging and keep it brief (max 1 sentence).
+                
+                2. IF the patient mentions pain/soreness BUT does NOT give a number (0-10):
+                   - Assign "pain_score": -1 (This means "Waiting for confirmation")
+                   - Message: Empathetically ask them to rate the pain on a scale of 1-10.
+                
+                3. IF the patient gives a number (1-10) or answers your previous follow-up:
+                   - Assign "pain_score": The number they gave.
+                   - Message: Confirm you've noted it for the doctor. Suggest rest if > 3.
 
-                Output format (JSON only):
+                Output JSON ONLY:
                 {
                   "pain_score": number,
                   "message": string
@@ -114,40 +110,69 @@ export default function ChatInterface({ workoutLogId, exerciseName, onClose }) {
 
       const data = await response.json();
       
+      // If 2.5 fails (403/404), throw to trigger the Safety Net below
+      if (data.error) throw new Error(data.error.message);
+
       let aiText = "I've noted that for your doctor.";
-      let extractedScore = 0;
+      let extractedScore = -1; 
 
       if (data.candidates && data.candidates[0].content) {
         const rawText = data.candidates[0].content.parts[0].text;
         const cleanJson = rawText.replace(/```json|```/g, '').trim();
-        
         try {
             const parsedData = JSON.parse(cleanJson);
             aiText = parsedData.message;       
             extractedScore = parsedData.pain_score;
         } catch (e) {
-            console.error("Failed to parse AI JSON:", e);
             aiText = rawText; 
         }
       }
 
-      // 4. UPDATE WORKOUT LOG IF PAIN DETECTED
-      if (extractedScore > 0 && workoutLogId) {
+      // 4. UPDATE DB (Only if score is confirmed 0-10)
+      if (extractedScore >= 0 && workoutLogId) {
         await supabase
           .from('workout_logs')
-          .update({ pain_rating: extractedScore })
+          .update({ 
+              pain_rating: extractedScore,
+              seen_by_doctor: false 
+          }) 
           .eq('id', workoutLogId);
-        console.log(`AI Calculated Pain Score: ${extractedScore}/10`);
       }
 
-      // 5. SAVE AI RESPONSE TO DB
       setMessages(prev => [...prev, { sender: 'ai', text: aiText }]);
       if (sessionId) saveMessageToDB(sessionId, 'ai', aiText);
 
     } catch (error) {
-      console.error("Chat Error:", error);
-      const errText = "I've logged your status for the therapist.";
-      setMessages(prev => [...prev, { sender: 'ai', text: errText }]);
+      console.error("Using Offline Backup:", error);
+      
+      // --- SAFETY NET (Runs if 2.5 fails so video works) ---
+      let fallbackScore = -1;
+      let fallbackResponse = "Could you rate that pain on a scale of 1-10?";
+      const lower = userText.toLowerCase();
+
+      // Check for numbers first
+      const numberMatch = userText.match(/\b([0-9]|10)\b/);
+      if (numberMatch) {
+          fallbackScore = parseInt(numberMatch[0]);
+          fallbackResponse = `I've noted your pain level of ${fallbackScore} for the doctor.`;
+      } 
+      else if (lower.includes('good') || lower.includes('great') || lower.includes('fine')) {
+          fallbackScore = 0;
+          fallbackResponse = "That's great! Keep up the good work.";
+      }
+      else if (lower.includes('pain') || lower.includes('hurt')) {
+          fallbackScore = -1; // Ask for number
+          fallbackResponse = "I'm sorry to hear that. On a scale of 1-10, how bad is it?";
+      }
+
+      if (fallbackScore >= 0 && workoutLogId) {
+          await supabase.from('workout_logs')
+            .update({ pain_rating: fallbackScore, seen_by_doctor: false })
+            .eq('id', workoutLogId);
+      }
+
+      setMessages(prev => [...prev, { sender: 'ai', text: fallbackResponse }]);
+      if (sessionId) saveMessageToDB(sessionId, 'ai', fallbackResponse);
     } finally {
       setIsTyping(false);
     }

@@ -82,7 +82,9 @@ export default function DoctorDashboard() {
         .select(`
             id, created_at, total_reps, clean_reps, pain_rating, assignment_id,
             assignments ( exercises ( slug ) ),
-            chat_sessions ( chat_messages ( sender, context ) )
+            chat_sessions ( 
+                chat_messages ( sender, context, created_at ) 
+            )
         `)
         .eq('patient_id', patientId)
         .order('created_at', { ascending: false });
@@ -119,14 +121,9 @@ export default function DoctorDashboard() {
     } catch (error) { alert(error.message); }
   };
 
-  // Allow Doctor to unassign an exercise
   const handleUnassign = async (assignmentId) => {
       if(!window.confirm("Remove this exercise?")) return;
-      const { error } = await supabase
-        .from('assignments')
-        .update({ is_active: false })
-        .eq('id', assignmentId);
-      
+      const { error } = await supabase.from('assignments').update({ is_active: false }).eq('id', assignmentId);
       if (!error) fetchPatientDetails(selectedPatientId);
   };
 
@@ -135,20 +132,19 @@ export default function DoctorDashboard() {
       return slug.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   };
 
-  // --- UPDATED LOGIC & LIGHTER COLORS ---
+  // Logic: 0-3 (Green), 4-6 (Yellow), 7+ (Red)
   const getPainStatus = (score) => {
-    // 0-3: Green (Good/Mild)
-    if (score <= 3) return { 
-        color: '#22c55e', bg: '#dcfce7', label: `Pain Level: ${score}`, icon: '✅' 
-    };
-    // 4-6: Yellow (Moderate)
-    if (score >= 4 && score <= 6) return { 
-        color: '#eab308', bg: '#fef9c3', label: `Pain Level: ${score}`, icon: '⚠️' 
-    };
-    // 7+: Red (Severe)
-    return { 
-        color: '#ef4444', bg: '#fee2e2', label: `Pain Level: ${score}`, icon: '🚨' 
-    };
+    if (score === null || score === undefined) {
+        return { 
+            color: '#94a3b8', // Grey
+            bg: '#f1f5f9', 
+            label: 'Pain Level: N/A', 
+            icon: '➖' 
+        };
+    }
+    else if (score <= 3) return { color: '#22c55e', bg: '#dcfce7', label: `Pain Level: ${score}`, icon: '✅' };
+    else if (score >= 4 && score <= 6) return { color: '#eab308', bg: '#fef9c3', label: `Pain Level: ${score}`, icon: '⚠️' };
+    return { color: '#ef4444', bg: '#fee2e2', label: `Pain Level: ${score}`, icon: '🚨' };
   };
 
   const activePatient = patients.find(p => p.id === selectedPatientId);
@@ -164,7 +160,6 @@ export default function DoctorDashboard() {
              <StyledInput icon="person.fill" placeholder="Search patients..." />
           </div>
         </div>
-        
         <div style={{ overflowY: 'auto', flex: 1 }}>
           {loading ? <div style={{padding: 20}}>Loading...</div> : patients.map(p => (
             <div 
@@ -212,7 +207,7 @@ export default function DoctorDashboard() {
                     <button className="btn-black" onClick={() => setShowModal(true)} style={{ background: '#11181C', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>+ Assign Exercise</button>
                 </div>
 
-                {/* ACTIVE ASSIGNMENTS (With Unassign) */}
+                {/* ACTIVE ASSIGNMENTS */}
                 <div style={{ marginBottom: '40px' }}>
                     <h3 style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '10px', marginBottom: '20px', color: '#374151' }}>Active Assignment</h3>
                     {activeAssignments.length === 0 ? (
@@ -259,10 +254,13 @@ export default function DoctorDashboard() {
                             const exerciseTitle = formatSlug(rawSlug);
                             const date = new Date(log.created_at).toLocaleString();
                             
-                            // CHAT EXTRACTION
-                            const chatSession = log.chat_sessions?.[0]; 
-                            const patientMessages = chatSession?.chat_messages?.filter(m => m.sender === 'user') || [];
-                            const lastMessage = patientMessages.length > 0 ? patientMessages[patientMessages.length - 1].context : null;
+                            // --- FIX: GET ALL MESSAGES FROM ALL SESSIONS ---
+                            // We use .flatMap to combine messages from multiple sessions into one list
+                            const allMessages = log.chat_sessions?.flatMap(s => s.chat_messages) || [];
+                            
+                            // Sort by time (Oldest -> Newest)
+                            allMessages.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+                            const hasChat = allMessages.length > 0;
 
                             return (
                                 <div key={log.id} style={{ 
@@ -275,7 +273,6 @@ export default function DoctorDashboard() {
                                             <h3 style={{ margin: 0, fontSize: '1.25rem' }}>{exerciseTitle}</h3>
                                             <span style={{ fontSize: '0.875rem', color: '#9ca3af' }}>{date}</span>
                                         </div>
-                                        {/* PILL BADGE */}
                                         <div style={{ backgroundColor: pain.bg, color: pain.color, padding: '4px 12px', borderRadius: '9999px', fontWeight: 'bold', fontSize: '0.875rem', height: 'fit-content', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <span>{pain.icon}</span>
                                             <span>{pain.label}</span>
@@ -295,13 +292,22 @@ export default function DoctorDashboard() {
                                         </div>
                                     </div>
 
-                                    {/* GREY FEEDBACK BOX */}
-                                    {lastMessage ? (
-                                        <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', borderLeft: '3px solid #cbd5e1' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                                                <span>💬</span> <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>PATIENT FEEDBACK</span>
+                                    {/* FULL TRANSCRIPT (Fixed!) */}
+                                    {hasChat ? (
+                                        <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', borderLeft: '3px solid #cbd5e1' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                                                <span>💬</span> <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>SESSION TRANSCRIPT</span>
                                             </div>
-                                            <p style={{ margin: 0, fontStyle: 'italic', color: '#334155' }}>"{lastMessage}"</p>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                {allMessages.map((msg, idx) => (
+                                                    <div key={idx} style={{ fontSize: '0.9rem' }}>
+                                                        <span style={{ fontWeight: 'bold', color: msg.sender === 'ai' ? '#2563eb' : '#11181C', textTransform: 'uppercase', fontSize: '0.75rem' }}>
+                                                            {msg.sender === 'ai' ? 'AI Assistant' : 'Patient'}:
+                                                        </span>
+                                                        <span style={{ marginLeft: '8px', color: '#334155' }}>"{msg.context}"</span>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     ) : (
                                         <div style={{ fontSize: '0.8rem', color: '#9ca3af', fontStyle: 'italic' }}>No comments logged for this session.</div>

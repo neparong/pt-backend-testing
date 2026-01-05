@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../services/supabaseClient';
+import { supabase } from '../services/supabaseClient'; 
 import { IconSymbol } from '../components/IconSymbol';
 import { ThemedText } from '../components/ThemedText';
 import '../App.css'; 
@@ -12,7 +12,7 @@ export default function PatientDashboard() {
   const [userName, setUserName] = useState('Patient');
   const [userInitials, setUserInitials] = useState('P');
   const [assignments, setAssignments] = useState([]);
-  const [completedSet, setCompletedSet] = useState(new Set()); // <--- NEW: Tracks done items
+  const [completedSet, setCompletedSet] = useState(new Set()); 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,7 +41,7 @@ export default function PatientDashboard() {
         setUserInitials(profile.full_name.charAt(0).toUpperCase());
       }
 
-      // 3. NEW: Check "Done Today" Logs
+      // 3. Check "Done Today" Logs
       const today = new Date().toISOString().split('T')[0]; 
       const { data: logs } = await supabase
         .from('workout_logs')
@@ -49,7 +49,6 @@ export default function PatientDashboard() {
         .eq('patient_id', user.id)
         .gte('created_at', today);
 
-      // Store IDs of finished assignments
       const doneIds = new Set(logs?.map(l => l.assignment_id));
       setCompletedSet(doneIds);
 
@@ -73,7 +72,7 @@ export default function PatientDashboard() {
 
       // 5. Format Data
       const formattedExercises = assignmentData.map((item) => ({
-        id: item.id, // This is the assignment_id
+        id: item.id,
         title: item.exercise.name, 
         type: item.exercise.slug,  
         goalCount: item.custom_goal || item.exercise.default_goal, 
@@ -92,11 +91,16 @@ export default function PatientDashboard() {
   const handleStart = (ex) => {
     navigate(`/exercise/${ex.type}`, {
         state: { 
-            assignmentId: ex.id, // Pass ID so we can save the log correctly
+            assignmentId: ex.id, 
             exerciseName: ex.title 
         }
     });
   };
+
+  // --- THE FIX: CALCULATE COMPLETED COUNT ---
+  // Only count it as "Done" if it matches an ACTIVE assignment.
+  // This ignores logs for exercises that were unassigned.
+  const completedCount = assignments.filter(a => completedSet.has(a.id)).length;
 
   return (
     <div style={{ background: '#f9fafb', minHeight: '100vh', width: '100%' }}>
@@ -127,7 +131,8 @@ export default function PatientDashboard() {
         </div>
         <div className="card">
           <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '4px' }}>Completed</div>
-          <div style={{ fontSize: '32px', fontWeight: 'bold' }}>{completedSet.size}/{assignments.length}</div>
+          {/* THE FIXED COUNT DISPLAY */}
+          <div style={{ fontSize: '32px', fontWeight: 'bold' }}>{completedCount}/{assignments.length}</div>
         </div>
 
         {/* Exercise List */}
@@ -143,14 +148,14 @@ export default function PatientDashboard() {
           ) : (
              <div className="col gap-4">
                {assignments.map(ex => {
-                 const isDone = completedSet.has(ex.id); // Check if finished
+                 const isDone = completedSet.has(ex.id); 
 
                  return (
                    <div key={ex.id} style={{ 
                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
                        padding: '16px', 
-                       border: isDone ? '1px solid #86efac' : '1px solid #f3f4f6', // Green border if done
-                       backgroundColor: isDone ? '#f0fdf4' : 'white', // Green background if done
+                       border: isDone ? '1px solid #86efac' : '1px solid #f3f4f6', 
+                       backgroundColor: isDone ? '#f0fdf4' : 'white', 
                        borderRadius: '12px',
                        opacity: isDone ? 0.8 : 1
                    }}>
