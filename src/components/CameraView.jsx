@@ -23,6 +23,11 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
   const stage = useRef("up");
   const internalCount = useRef(0);
   const requestRef = useRef(null);
+  
+  // --- NEW: MAJORITY RULE TRACKING ---
+  const cleanRepsCount = useRef(0);
+  const repTotalFrames = useRef(0);
+  const repBadFrames = useRef(0);
 
   // 1. GAME CONTROL
   useEffect(() => {
@@ -30,6 +35,12 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
         setCountdown(5);
         setRepCount(0);
         internalCount.current = 0;
+        cleanRepsCount.current = 0; 
+        
+        // Reset Logic
+        repTotalFrames.current = 0;
+        repBadFrames.current = 0;
+
         stage.current = "up";
         setIsFinished(false);
         setFeedback("Get Ready...");
@@ -81,15 +92,13 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
       const drawingUtils = new DrawingUtils(ctx);
       const results = landmarkerRef.current.detectForVideo(video, performance.now());
 
-      // Match Dimensions
       if (canvas.width !== video.videoWidth) {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
       }
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      // --- MANUAL JS FLIP ---
-      // This is necessary because we removed the CSS flip from the canvas to avoid confusion.
+      // Manual Flip
       ctx.save();
       ctx.translate(canvas.width, 0); 
       ctx.scale(-1, 1); 
@@ -98,7 +107,6 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
         const landmark = results.landmarks[0];
         let currentLineColor = "#00FF00"; 
 
-        // --- ANALYSIS LOGIC ---
         if (isActiveRef.current && !isFinished) {
             let analysis;
             
@@ -111,9 +119,19 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
             setUiColor(analysis.color);
             currentLineColor = analysis.color;
 
+            // --- "MAJORITY RULE" CALCULATION ---
+            // Only judge the user when they are actually doing the rep (Stage: Down)
+            if (stage.current === "down") {
+                repTotalFrames.current += 1;
+                if (analysis.color === "#FF0000") {
+                    repBadFrames.current += 1;
+                }
+            }
+
             if (analysis.isDeepEnough) stage.current = "down";
 
             let repJustFinished = false;
+            // Define finish conditions
             if (exerciseType === 'squat' && analysis.kneeAngle > 160 && stage.current === "down") repJustFinished = true;
             else if (exerciseType === 'lateral_leg_lift' && !analysis.isDeepEnough && stage.current === "down") repJustFinished = true;
             else if (exerciseType === 'band_stretch' && analysis.currentRatio < 1.8 && stage.current === "down") repJustFinished = true;
@@ -122,6 +140,26 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
                 stage.current = "up";
                 internalCount.current += 1;
                 setRepCount(internalCount.current);
+                
+                // --- THE VERDICT ---
+                // Calculate percentage of bad frames during the hold
+                const badPercentage = repTotalFrames.current > 0 
+                    ? (repBadFrames.current / repTotalFrames.current) 
+                    : 0;
+
+                // Log logic for debugging (Press F12 to see this!)
+                console.log(`Rep ${internalCount.current}: ${Math.round(badPercentage*100)}% Bad Frames`);
+
+                // Tolerant Logic: If less than 30% of the rep was bad, it's Clean.
+                // This ignores the 1-2 frames of "Red" during transition.
+                if (badPercentage < 0.30) { 
+                    cleanRepsCount.current += 1;
+                }
+
+                // Reset trackers for the next rep
+                repTotalFrames.current = 0;
+                repBadFrames.current = 0;
+
                 new Audio('/success.mp3').play().catch(() => {});
                 setShowCheck(true);
                 setTimeout(() => setShowCheck(false), 800);
@@ -129,12 +167,15 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
                 if (internalCount.current >= goal.total) {
                     setIsFinished(true);
                     isActiveRef.current = false;
-                    onComplete(); 
+                    
+                    onComplete({ 
+                        totalReps: internalCount.current, 
+                        cleanReps: cleanRepsCount.current 
+                    }); 
                 }
             }
         }
 
-        // --- DRAWING ---
         const bodyConnections = PoseLandmarker.POSE_CONNECTIONS.filter(c => c.start >= 11 && c.end >= 11);
         drawingUtils.drawConnectors(landmark, bodyConnections, { color: currentLineColor, lineWidth: 4 });
         drawingUtils.drawLandmarks(landmark, { color: "red", lineWidth: 2, radius: (data) => (data.index < 11 ? 0 : 4) });
@@ -146,19 +187,15 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
 
   return (
     <div className="camera-section">
-      
-      {/* 1. PILL (Solid BG, Black Text) */}
       <div className="feedback-pill" style={{ 
           backgroundColor: uiColor === 'white' ? 'white' : uiColor,
-          // Border is only needed if white, to separate from background
+          color: '#11181C', 
           border: uiColor === 'white' ? '3px solid #e5e7eb' : `3px solid ${uiColor}`
       }}>
           {feedback}
       </div>
 
-      {/* 2. CAMERA BOX */}
       <div className="camera-container">
-        
         {countdown > 0 && (
             <div className="countdown-overlay">
                 <div className="countdown-number">{countdown}</div>
