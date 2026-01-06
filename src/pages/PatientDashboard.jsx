@@ -57,8 +57,8 @@ export default function PatientDashboard() {
         .from('assignments')
         .select(`
           id,
-          custom_instructions,
           custom_goal,
+          frequency,
           exercise:exercises (
             slug,
             name,
@@ -71,13 +71,17 @@ export default function PatientDashboard() {
       if (error) throw error;
 
       // 5. Format Data
-      const formattedExercises = assignmentData.map((item) => ({
-        id: item.id,
-        title: item.exercise.name, 
-        type: item.exercise.slug,  
-        goalCount: item.custom_goal || item.exercise.default_goal, 
-        repsDisplay: `${item.custom_goal || item.exercise.default_goal} Reps`
-      }));
+      const formattedExercises = assignmentData.map((item) => {
+        const targetReps = item.custom_goal || item.exercise.default_goal;
+
+        return {
+            id: item.id,
+            title: item.exercise.name, 
+            type: item.exercise.slug,  
+            goalCount: targetReps, 
+            repsDisplay: `${targetReps} Reps`
+        };
+      });
 
       setAssignments(formattedExercises);
 
@@ -97,15 +101,11 @@ export default function PatientDashboard() {
     });
   };
 
-  // --- THE FIX: CALCULATE COMPLETED COUNT ---
-  // Only count it as "Done" if it matches an ACTIVE assignment.
-  // This ignores logs for exercises that were unassigned.
   const completedCount = assignments.filter(a => completedSet.has(a.id)).length;
 
   return (
     <div style={{ background: '#f9fafb', minHeight: '100vh', width: '100%' }}>
       
-      {/* Grid Layout */}
       <div className="dashboard-grid">
         
         {/* Header */}
@@ -131,7 +131,6 @@ export default function PatientDashboard() {
         </div>
         <div className="card">
           <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '4px' }}>Completed</div>
-          {/* THE FIXED COUNT DISPLAY */}
           <div style={{ fontSize: '32px', fontWeight: 'bold' }}>{completedCount}/{assignments.length}</div>
         </div>
 
@@ -157,7 +156,7 @@ export default function PatientDashboard() {
                        border: isDone ? '1px solid #86efac' : '1px solid #f3f4f6', 
                        backgroundColor: isDone ? '#f0fdf4' : 'white', 
                        borderRadius: '12px',
-                       opacity: isDone ? 0.8 : 1
+                       opacity: isDone ? 0.9 : 1
                    }}>
                      <div>
                        <ThemedText type="defaultSemiBold" style={{ textDecoration: isDone ? 'line-through' : 'none', color: isDone ? '#15803d' : 'inherit' }}>
@@ -170,17 +169,30 @@ export default function PatientDashboard() {
                        </div>
                      </div>
                      
+                     {/* BUTTON CHANGE: Always show a button, just style it differently */}
                      <div className="row gap-2">
-                       {isDone ? (
-                           <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#22c55e', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                               ✓
-                           </div>
-                       ) : (
-                           <button className="btn-black" onClick={() => handleStart(ex)}>
-                             <IconSymbol name="paperplane.fill" size={14} color="white" />
-                             Start
-                           </button>
-                       )}
+                        <button 
+                            className="btn-black" 
+                            onClick={() => handleStart(ex)}
+                            style={{ 
+                                background: isDone ? 'white' : '#11181C', 
+                                color: isDone ? '#15803d' : 'white', 
+                                border: isDone ? '1px solid #86efac' : 'none',
+                                display: 'flex', alignItems: 'center', gap: '6px'
+                            }}
+                        >
+                             {isDone ? (
+                                 <>
+                                    <span>Review</span>
+                                    <IconSymbol name="arrow.clockwise" size={14} color="#15803d" />
+                                 </>
+                             ) : (
+                                 <>
+                                    <span>Start</span>
+                                    <IconSymbol name="paperplane.fill" size={14} color="white" />
+                                 </>
+                             )}
+                        </button>
                      </div>
                    </div>
                  );

@@ -17,14 +17,19 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
   const [showCheck, setShowCheck] = useState(false); 
   const [countdown, setCountdown] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
+  
+  // Switch Side UI
+  const [isSwitching, setIsSwitching] = useState(false);
+  const [isLeftDisplay, setIsLeftDisplay] = useState(false); // For UI Label only
 
-  // Logic Refs
+  // LOGIC REFS (These fix the "Stale State" bug)
+  const isLeftRef = useRef(false); // <--- TRUE SOURCE OF TRUTH FOR SIDE
   const isActiveRef = useRef(false);
   const stage = useRef("up");
   const internalCount = useRef(0);
   const requestRef = useRef(null);
   
-  // --- NEW: MAJORITY RULE TRACKING ---
+  // Stats Refs
   const cleanRepsCount = useRef(0);
   const repTotalFrames = useRef(0);
   const repBadFrames = useRef(0);
@@ -37,7 +42,11 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
         internalCount.current = 0;
         cleanRepsCount.current = 0; 
         
-        // Reset Logic
+        // Reset Side
+        isLeftRef.current = false;
+        setIsLeftDisplay(false);
+        setIsSwitching(false);
+        
         repTotalFrames.current = 0;
         repBadFrames.current = 0;
 
@@ -47,22 +56,10 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
         setUiColor("white");
         isActiveRef.current = false; 
 
-        const timer = setInterval(() => {
-            setCountdown((prev) => {
-                if (prev === 1) {
-                    clearInterval(timer);
-                    isActiveRef.current = true;
-                    setFeedback("GO!");
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-        return () => clearInterval(timer);
+        startCountdown();
     } else {
         setCountdown(0);
         isActiveRef.current = false;
-        
         if (hasCompleted) {
             setFeedback("Complete!");
             setUiColor("#e0e7ff"); 
@@ -71,17 +68,37 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
             setUiColor("white");
         }
     }
-  }, [isRunning, exerciseType, hasCompleted]);
+  }, [isRunning, exerciseType]);
+
+  const startCountdown = () => {
+      let count = 5;
+      setCountdown(count);
+      const timer = setInterval(() => {
+          count -= 1;
+          setCountdown(count);
+          if (count === 0) {
+              clearInterval(timer);
+              isActiveRef.current = true;
+              setFeedback("GO!");
+          }
+      }, 1000);
+  };
+
+  const handleResumeAfterSwitch = () => {
+      setIsSwitching(false);
+      startCountdown(); 
+  };
 
   // 2. SETUP AI
   useEffect(() => {
     const setup = async () => {
       landmarkerRef.current = await createPoseLandmarker();
+      // Start the loop ONCE. It will read the Ref, so we don't need to restart it.
       requestRef.current = requestAnimationFrame(predict);
     };
     setup();
     return () => cancelAnimationFrame(requestRef.current);
-  }, []);
+  }, []); 
 
   // 3. PREDICTION LOOP
   const predict = () => {
@@ -98,7 +115,6 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
       }
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      // Manual Flip
       ctx.save();
       ctx.translate(canvas.width, 0); 
       ctx.scale(-1, 1); 
@@ -107,11 +123,14 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
         const landmark = results.landmarks[0];
         let currentLineColor = "#00FF00"; 
 
-        if (isActiveRef.current && !isFinished) {
+        if (isActiveRef.current && !isFinished && !isSwitching) {
             let analysis;
             
+            // USE THE REF, NOT THE STATE
+            const checkingLeft = isLeftRef.current; 
+
             if (exerciseType === 'squat') analysis = getSquatFeedback(landmark);
-            else if (exerciseType === 'lateral_leg_lift') analysis = getLateralLegLiftFeedback(landmark, false);
+            else if (exerciseType === 'lateral_leg_lift') analysis = getLateralLegLiftFeedback(landmark, checkingLeft);
             else if (exerciseType === 'band_stretch') analysis = getBandStretchFeedback(landmark);
             else analysis = { color: "#00FF00", message: "Neutral", isDeepEnough: false };
 
@@ -119,8 +138,7 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
             setUiColor(analysis.color);
             currentLineColor = analysis.color;
 
-            // --- "MAJORITY RULE" CALCULATION ---
-            // Only judge the user when they are actually doing the rep (Stage: Down)
+            // Majority Rule
             if (stage.current === "down") {
                 repTotalFrames.current += 1;
                 if (analysis.color === "#FF0000") {
@@ -131,7 +149,6 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
             if (analysis.isDeepEnough) stage.current = "down";
 
             let repJustFinished = false;
-            // Define finish conditions
             if (exerciseType === 'squat' && analysis.kneeAngle > 160 && stage.current === "down") repJustFinished = true;
             else if (exerciseType === 'lateral_leg_lift' && !analysis.isDeepEnough && stage.current === "down") repJustFinished = true;
             else if (exerciseType === 'band_stretch' && analysis.currentRatio < 1.8 && stage.current === "down") repJustFinished = true;
@@ -141,22 +158,9 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
                 internalCount.current += 1;
                 setRepCount(internalCount.current);
                 
-                // --- THE VERDICT ---
-                // Calculate percentage of bad frames during the hold
-                const badPercentage = repTotalFrames.current > 0 
-                    ? (repBadFrames.current / repTotalFrames.current) 
-                    : 0;
+                const badPercentage = repTotalFrames.current > 0 ? (repBadFrames.current / repTotalFrames.current) : 0;
+                if (badPercentage < 0.30) cleanRepsCount.current += 1;
 
-                // Log logic for debugging (Press F12 to see this!)
-                console.log(`Rep ${internalCount.current}: ${Math.round(badPercentage*100)}% Bad Frames`);
-
-                // Tolerant Logic: If less than 30% of the rep was bad, it's Clean.
-                // This ignores the 1-2 frames of "Red" during transition.
-                if (badPercentage < 0.30) { 
-                    cleanRepsCount.current += 1;
-                }
-
-                // Reset trackers for the next rep
                 repTotalFrames.current = 0;
                 repBadFrames.current = 0;
 
@@ -164,10 +168,19 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
                 setShowCheck(true);
                 setTimeout(() => setShowCheck(false), 800);
                 
-                if (internalCount.current >= goal.total) {
+                // --- SWITCH SIDE LOGIC ---
+                // Use the REF to check if we need to switch
+                if (goal.perSide && internalCount.current === goal.switchAt && !isLeftRef.current) {
+                    isActiveRef.current = false; 
+                    setIsSwitching(true);        
+                    
+                    // UPDATE REF AND STATE
+                    isLeftRef.current = true;    
+                    setIsLeftDisplay(true);      
+                }
+                else if (internalCount.current >= goal.total) {
                     setIsFinished(true);
                     isActiveRef.current = false;
-                    
                     onComplete({ 
                         totalReps: internalCount.current, 
                         cleanReps: cleanRepsCount.current 
@@ -196,10 +209,26 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
       </div>
 
       <div className="camera-container">
+        
         {countdown > 0 && (
             <div className="countdown-overlay">
                 <div className="countdown-number">{countdown}</div>
-                <p style={{color: 'white', fontSize: '2rem', fontWeight: 'bold', margin: 0}}>Get Ready!</p>
+                <p style={{color: 'white', fontSize: '2rem', fontWeight: 'bold', margin: 0}}>
+                    {isLeftDisplay ? "Left Side Next!" : "Get Ready!"}
+                </p>
+            </div>
+        )}
+
+        {isSwitching && (
+            <div className="success-overlay" style={{background: 'rgba(37, 99, 235, 0.9)'}}>
+                <h1 style={{ fontSize: '3rem', margin: 0 }}>HALFTIME! ⏱️</h1>
+                <p style={{ fontSize: '1.5rem', marginBottom: '30px' }}>Great job. Now switch to your <strong>LEFT LEG</strong>.</p>
+                <button 
+                    onClick={handleResumeAfterSwitch}
+                    style={{ padding: '15px 30px', fontSize: '1.5rem', borderRadius: '12px', border: 'none', cursor: 'pointer', background: 'white', color: '#2563eb', fontWeight: 'bold' }}
+                >
+                    Ready for Left Side
+                </button>
             </div>
         )}
 
@@ -210,9 +239,10 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
             </div>
         )}
 
-        {(isActiveRef.current || countdown > 0) && !isFinished && (
+        {(isActiveRef.current || countdown > 0) && !isFinished && !isSwitching && (
              <div className="rep-counter">
                 {repCount} <span style={{fontSize: '1rem', color: '#666', fontWeight: '600'}}>/ {goal.total}</span>
+                {goal.perSide && <div style={{fontSize: '0.8rem', color: '#2563eb', marginTop: 2}}>{isLeftDisplay ? 'Left Side' : 'Right Side'}</div>}
              </div>
         )}
 

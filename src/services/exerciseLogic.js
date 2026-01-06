@@ -39,17 +39,17 @@ export const getSquatFeedback = (landmarks) => {
     return { color, message, isDeepEnough, kneeAngle };
 };
 
-// --- LATERAL LEG LIFT LOGIC ---
+// --- LATERAL LEG LIFT LOGIC (Stricter) ---
 export const getLateralLegLiftFeedback = (landmarks, isLeft = false) => {
     let shoulder, hip, ankle;
 
     if (isLeft) {
-        // USE LEFT SIDE COORDINATES
+        // LEFT SIDE: 11, 23, 27
         shoulder = landmarks[11]; 
         hip = landmarks[23];      
         ankle = landmarks[27];    
     } else {
-        // USE RIGHT SIDE COORDINATES
+        // RIGHT SIDE: 12, 24, 28
         shoulder = landmarks[12]; 
         hip = landmarks[24];      
         ankle = landmarks[28];    
@@ -57,19 +57,25 @@ export const getLateralLegLiftFeedback = (landmarks, isLeft = false) => {
 
     const liftAngle = calculateAngle(shoulder, hip, ankle);
 
-    let color = "#00FF00";
-    let message = "Good Control";
+    // DEFAULT TO YELLOW (Waiting for action)
+    let color = "#FFFF00"; 
+    let message = isLeft ? "LIFT LEFT LEG" : "LIFT RIGHT LEG";
     let isDeepEnough = false;
 
-    // Note: liftAngle is usually ~180 standing straight. 
-    // Lifting leg makes the angle smaller (e.g., 140).
-    if (liftAngle > 165) {
-        color = "#FFFF00";
-        message = isLeft ? "LIFT LEFT LEG" : "LIFT RIGHT LEG";
-    } else if (liftAngle < 155) {
-        isDeepEnough = true;
+    // Standing Straight is usually 170-180
+    // Lifting leg makes angle smaller (e.g., 140)
+    
+    if (liftAngle < 155) {
+        // SUCCESS ZONE
+        color = "#00FF00"; // Green
         message = "GREAT HEIGHT!";
-    }
+        isDeepEnough = true;
+    } else if (liftAngle < 165) {
+        // TRANSITION ZONE (Almost there)
+        color = "#00FF00"; // Green (Encouraging)
+        message = "Good Control";
+    } 
+    // Anything > 165 remains Yellow ("Lift Leg")
 
     return { color, message, isDeepEnough, liftAngle };
 };
