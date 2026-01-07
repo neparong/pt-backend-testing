@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-// 👇 THIS IS THE FIX
 import { supabase } from '../services/supabaseClient'; 
 import { IconSymbol } from '../components/IconSymbol';
 import { ThemedText } from '../components/ThemedText';
 import { StyledInput } from '../components/StyledInput';
+import '../App.css'; // Ensure CSS is imported
 
 export default function SignUp() {
   const navigate = useNavigate();
@@ -62,43 +62,75 @@ export default function SignUp() {
   };
 
   return (
-    <div className="container" style={{ paddingTop: '40px', maxWidth: '500px' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
-        <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-          <IconSymbol name="xmark" size={28} color="#000" />
-        </button>
-      </div>
+    // WRAPPER: Centers content on the screen (from App.css)
+    <div className="auth-page-wrapper">
+      
+      {/* CARD: The white box */}
+      <div className="auth-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+           <h2 style={{ fontSize: '1.8rem', margin: 0, fontWeight: '800' }}>Get Started</h2>
+           <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+             <IconSymbol name="xmark" size={24} color="#9ca3af" />
+           </button>
+        </div>
 
-      <ThemedText type="title" style={{ marginBottom: '8px' }}>Get Started</ThemedText>
-      <ThemedText style={{ marginBottom: '32px', color: 'gray' }}>Create your account to begin</ThemedText>
+        <ThemedText style={{ marginBottom: '24px', color: 'gray' }}>Create your account to begin.</ThemedText>
 
-      <ThemedText type="defaultSemiBold" style={{ marginBottom: '8px' }}>I am a...</ThemedText>
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
+        <ThemedText type="defaultSemiBold" style={{ marginBottom: '12px', fontSize:'0.9rem' }}>I am a...</ThemedText>
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
+          <button 
+            onClick={() => setUserType('patient')}
+            style={{ 
+                flex: 1, padding: '12px', borderRadius: '12px', cursor: 'pointer', fontWeight: '600',
+                border: userType === 'patient' ? '2px solid #2563eb' : '1px solid #e5e7eb', 
+                background: userType === 'patient' ? '#eff6ff' : 'white', 
+                color: userType === 'patient' ? '#2563eb' : 'gray', 
+            }}
+          >
+            Patient
+          </button>
+          <button 
+            onClick={() => setUserType('doctor')} 
+            style={{ 
+                flex: 1, padding: '12px', borderRadius: '12px', cursor: 'pointer', fontWeight: '600',
+                border: userType === 'doctor' ? '2px solid #2563eb' : '1px solid #e5e7eb', 
+                background: userType === 'doctor' ? '#eff6ff' : 'white', 
+                color: userType === 'doctor' ? '#2563eb' : 'gray', 
+            }}
+          >
+            Doctor / PT
+          </button>
+        </div>
+
+        <StyledInput icon="person.fill" placeholder="Full Name" value={fullName} onChangeText={setFullName} />
+        <StyledInput icon="envelope" placeholder="Email" value={email} onChangeText={setEmail} />
+        <StyledInput icon="lock" placeholder="Create Password" type="password" value={password} onChangeText={setPassword} />
+
         <button 
-          onClick={() => setUserType('patient')}
-          style={{ flex: 1, padding: '12px', borderRadius: '12px', cursor: 'pointer', border: userType === 'patient' ? '1px solid #2563eb' : '1px solid #e5e7eb', background: userType === 'patient' ? '#eff6ff' : 'white', color: userType === 'patient' ? '#2563eb' : 'gray', fontWeight: '600' }}
+            className="btn-primary" 
+            onClick={handleSignUp} 
+            disabled={loading}
+            style={{ 
+                opacity: loading ? 0.7 : 1, 
+                width: '100%', 
+                marginTop: '20px',
+                background: '#11181C',
+                color: 'white',
+                padding: '16px',
+                borderRadius: '12px',
+                border: 'none',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer'
+            }}
         >
-          Patient
+          {loading ? 'Creating...' : 'Create Account'}
         </button>
-        <button 
-          onClick={() => setUserType('doctor')} 
-          style={{ flex: 1, padding: '12px', borderRadius: '12px', cursor: 'pointer', border: userType === 'doctor' ? '1px solid #2563eb' : '1px solid #e5e7eb', background: userType === 'doctor' ? '#eff6ff' : 'white', color: userType === 'doctor' ? '#2563eb' : 'gray', fontWeight: '600' }}
-        >
-          Doctor / PT
-        </button>
-      </div>
 
-      <StyledInput icon="person.fill" placeholder="Full Name" value={fullName} onChangeText={setFullName} />
-      <StyledInput icon="envelope" placeholder="Email" value={email} onChangeText={setEmail} />
-      <StyledInput icon="lock" placeholder="Create Password" type="password" value={password} onChangeText={setPassword} />
-
-      <button className="btn-primary" style={{ width: '100%', marginTop: '16px', opacity: loading ? 0.7 : 1 }} onClick={handleSignUp} disabled={loading}>
-        {loading ? 'Creating...' : 'Create Account'}
-      </button>
-
-      <div style={{ marginTop: '24px', textAlign: 'center' }}>
-        <span style={{ color: 'gray' }}>Already have an account? </span>
-        <span onClick={() => navigate('/signin')} style={{ color: '#2563eb', fontWeight: '600', cursor: 'pointer' }}>Sign in</span>
+        <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '0.9rem' }}>
+          <span style={{ color: 'gray' }}>Already have an account? </span>
+          <span onClick={() => navigate('/signin')} style={{ color: '#2563eb', fontWeight: '600', cursor: 'pointer' }}>Sign in</span>
+        </div>
       </div>
     </div>
   );

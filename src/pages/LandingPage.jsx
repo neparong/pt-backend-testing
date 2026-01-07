@@ -1,54 +1,49 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconSymbol } from '../components/IconSymbol';
-import { ThemedText } from '../components/ThemedText';
+import '../App.css'; // Ensure CSS is imported
 
 export default function LandingPage() {
   const navigate = useNavigate();
 
   return (
-    <div style={{ 
-      background: 'linear-gradient(to bottom, #2563eb, #1e40af)', 
-      minHeight: '100vh', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      padding: '20px',
-      color: 'white'
-    }}>
+    <div className="landing-container">
       
       {/* Header Pill */}
-      <div style={{ marginTop: '60px', background: 'rgba(255,255,255,0.15)', padding: '8px 16px', borderRadius: '30px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+      <div style={{ marginTop: '40px', background: 'rgba(255,255,255,0.15)', padding: '8px 16px', borderRadius: '30px', display: 'flex', gap: '8px', alignItems: 'center', backdropFilter: 'blur(10px)' }}>
         <IconSymbol name="waveform.path.ecg" size={20} color="#fff" />
         <span style={{ fontWeight: 600, fontSize: '14px' }}>AI-Powered Physical Therapy</span>
       </div>
 
       {/* Main Content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'center', maxWidth: '600px' }}>
-        <h1 style={{ fontSize: '3.5rem', fontWeight: '800', lineHeight: 1.1, marginBottom: '24px', letterSpacing: '-0.02em' }}>
-          Your Recovery Journey, Powered by AI
+      <div className="landing-content">
+        <h1 className="landing-title">
+          Your Recovery Journey,<br />Powered by AI
         </h1>
-        <p style={{ fontSize: '1.25rem', opacity: 0.9, lineHeight: 1.6, maxWidth: '480px', margin: '0 auto' }}>
+        <p className="landing-subtitle">
           Professional physical therapy guidance, real-time form feedback, and personalized exercise plans—all in one platform.
         </p>
+
+        {/* Buttons (Side by Side on Desktop) */}
+        <div className="landing-buttons">
+          <button 
+            onClick={() => navigate('/signup')}
+            style={{ flex: 1, background: 'white', color: '#1e40af', padding: '18px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}
+          >
+            Get Started
+          </button>
+          
+          <button 
+            onClick={() => navigate('/signin')}
+            style={{ flex: 1, background: 'rgba(255,255,255,0.1)', border: '2px solid rgba(255,255,255,0.3)', color: 'white', padding: '18px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer', backdropFilter: 'blur(5px)' }}
+          >
+            Sign In
+          </button>
+        </div>
       </div>
 
-      {/* Footer Buttons */}
-      <div style={{ marginBottom: '60px', display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', maxWidth: '350px' }}>
-        <button 
-          onClick={() => navigate('/signup')}
-          className="btn-primary"
-          style={{ background: 'white', color: '#1e40af', padding: '16px', borderRadius: '50px', fontSize: '1.1rem' }}
-        >
-          Get Started
-        </button>
-        
-        <button 
-          onClick={() => navigate('/signin')}
-          style={{ background: 'transparent', border: '2px solid rgba(255,255,255,0.3)', color: 'white', padding: '16px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer' }}
-        >
-          Sign In
-        </button>
+      <div style={{ paddingBottom: '20px', opacity: 0.6, fontSize: '0.9rem' }}>
+        © 2026 PT Assistant. Microsoft Imagine Cup Entry.
       </div>
     </div>
   );

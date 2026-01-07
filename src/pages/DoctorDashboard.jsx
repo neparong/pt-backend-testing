@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient'; 
 import { ThemedText } from '../components/ThemedText';
 import { StyledInput } from '../components/StyledInput';
+import { IconSymbol } from '../components/IconSymbol';
 
 export default function DoctorDashboard() {
   const navigate = useNavigate();
   
   // STATE
   const [selectedPatientId, setSelectedPatientId] = useState(null);
+  const [doctorName, setDoctorName] = useState("Doctor");
   const [patients, setPatients] = useState([]);
   const [exercises, setExercises] = useState([]);
   const [patientLogs, setPatientLogs] = useState([]);
@@ -17,15 +19,20 @@ export default function DoctorDashboard() {
   const [loading, setLoading] = useState(true);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
-  // SEARCH & FILTER STATE
+  // DASHBOARD STATS
+  const [highPainAlerts, setHighPainAlerts] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]); 
+  const [inactivePatients, setInactivePatients] = useState([]); // NEW: Tracks "Ghosts"
+
+  // SEARCH & FILTER
   const [patientSearch, setPatientSearch] = useState(""); 
 
-  // MODAL & FORM STATE
+  // MODAL & FORM
   const [showModal, setShowModal] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState(null); 
   const [searchQuery, setSearchQuery] = useState(""); 
   
-  // EDITING STATE
+  // EDITING
   const [editingAssignmentId, setEditingAssignmentId] = useState(null); 
   const [rxReps, setRxReps] = useState(10);
   const [rxFreq, setRxFreq] = useState('Daily');
@@ -45,28 +52,93 @@ export default function DoctorDashboard() {
 
   const fetchInitialData = async () => {
     try {
-      const { data: patientData } = await supabase.from('profiles').select('*');
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+          const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
+          if (profile) setDoctorName(profile.full_name);
+      }
+
+      const { data: patientData } = await supabase.from('profiles').select('*').neq('role', 'therapist'); 
       const { data: exerciseData } = await supabase.from('exercises').select('*');
       setExercises(exerciseData || []);
 
       const { data: allLogs } = await supabase
         .from('workout_logs')
-        .select('patient_id, created_at, seen_by_doctor')
+        .select(`
+            id, patient_id, created_at, seen_by_doctor, pain_rating, 
+            profiles(full_name),
+            assignments(exercises(name))
+        `)
         .order('created_at', { ascending: false });
 
-      const lastActiveMap = {};
+      // LOGIC PROCESSING
+      const lastActiveMap = {}; // Key: PatientID, Value: Date Object
       const newActivity = new Set();
+      const alerts = [];
+      const recent = [];
 
       allLogs?.forEach(log => {
+        // Track last active date for every patient
+        const logDate = new Date(log.created_at);
         if (!lastActiveMap[log.patient_id]) {
-            lastActiveMap[log.patient_id] = new Date(log.created_at);
+            lastActiveMap[log.patient_id] = logDate;
         }
+
         if (!log.seen_by_doctor) {
             newActivity.add(log.patient_id);
         }
+
+        const isRecent = logDate > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        
+        // 1. Alert Logic: Pain > 3 + Not Seen
+        if (isRecent && log.pain_rating > 3 && !log.seen_by_doctor) {
+            if (!alerts.find(a => a.patient_id === log.patient_id)) {
+                alerts.push({
+                    log_id: log.id,
+                    patient_id: log.patient_id,
+                    name: log.profiles?.full_name || 'Patient',
+                    score: log.pain_rating,
+                    exercise: log.assignments?.exercises?.name || 'Exercise',
+                    date: log.created_at
+                });
+            }
+        }
+
+        // 2. Recent Activity: Pain <= 3
+        if (log.pain_rating <= 3) {
+            recent.push({
+                patient_id: log.patient_id,
+                name: log.profiles?.full_name || 'Patient',
+                exercise: log.assignments?.exercises?.name || 'Exercise',
+                date: log.created_at,
+                pain: log.pain_rating
+            });
+        }
       });
 
+      // 3. INACTIVE PATIENT LOGIC
+      const inactive = [];
+      const fourDaysAgo = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000);
+      
+      if (patientData) {
+          patientData.forEach(p => {
+              const lastSeen = lastActiveMap[p.id];
+              // If never seen OR last seen > 4 days ago
+              if (!lastSeen || lastSeen < fourDaysAgo) {
+                  inactive.push({
+                      id: p.id,
+                      name: p.full_name,
+                      lastSeen: lastSeen ? lastSeen.toLocaleDateString() : 'Never'
+                  });
+              }
+          });
+      }
+
       setNotifications(newActivity);
+      setHighPainAlerts(alerts.slice(0, 4));
+      setRecentActivity(recent.slice(0, 4));
+      setInactivePatients(inactive.slice(0, 3)); // Show top 3 ghosts
 
       if (patientData) {
           const sorted = patientData.sort((a, b) => {
@@ -86,6 +158,12 @@ export default function DoctorDashboard() {
       newNotes.delete(patientId);
       setNotifications(newNotes);
       await supabase.from('workout_logs').update({ seen_by_doctor: true }).eq('patient_id', patientId).eq('seen_by_doctor', false);
+  };
+
+  const handleDismissAlert = async (e, logId) => {
+      e.stopPropagation();
+      setHighPainAlerts(prev => prev.filter(alert => alert.log_id !== logId));
+      await supabase.from('workout_logs').update({ seen_by_doctor: true }).eq('id', logId);
   };
 
   const fetchPatientDetails = async (patientId) => {
@@ -112,8 +190,7 @@ export default function DoctorDashboard() {
     } catch (err) { console.error(err); } finally { setLoadingLogs(false); }
   };
 
-  // --- MODAL HANDLERS ---
-
+  // --- HANDLERS ---
   const handleOpenAddModal = () => {
       setEditingAssignmentId(null);
       setSelectedExercise(null);
@@ -139,7 +216,6 @@ export default function DoctorDashboard() {
     if (!selectedExercise || !selectedPatientId) return;
     try {
       const { data: { user } } = await supabase.auth.getUser(); 
-      
       if (editingAssignmentId) {
           const { error } = await supabase.from('assignments')
             .update({ custom_goal: rxReps, frequency: rxFreq, duration_weeks: rxDuration })
@@ -170,11 +246,6 @@ export default function DoctorDashboard() {
       if (!error) fetchPatientDetails(selectedPatientId);
   };
 
-  const formatSlug = (slug) => {
-      if (!slug) return "Exercise";
-      return slug.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  };
-
   const getExerciseName = (exerciseObj) => {
       if (exerciseObj?.name) return exerciseObj.name;
       if (exerciseObj?.slug) return exerciseObj.slug.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -201,32 +272,68 @@ export default function DoctorDashboard() {
       
       {/* LEFT COLUMN */}
       <div style={{ width: '350px', background: 'white', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '24px', borderBottom: '1px solid #e5e7eb' }}>
-          <ThemedText type="title" style={{ fontSize: '24px' }}>My Patients</ThemedText>
-          <div style={{ marginTop: '16px' }}>
+        
+        {/* 1. DOCTOR PROFILE & SIGNOUT */}
+        <div style={{ padding: '24px 24px 10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{display:'flex', alignItems:'center', gap:'12px'}}>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#1e40af', color:'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize:'1.1rem' }}>
+                    {doctorName.charAt(0)}
+                </div>
+                <div style={{display:'flex', flexDirection:'column'}}>
+                    <span style={{fontWeight:'700', fontSize:'1rem', color: '#0f172a'}}>{doctorName}</span>
+                    <span style={{fontSize:'0.75rem', color:'#64748b', fontWeight:'500'}}>Licensed Therapist</span>
+                </div>
+            </div>
+            <button 
+                onClick={() => { supabase.auth.signOut(); navigate('/'); }} 
+                style={{ background: '#fef2f2', border: '1px solid #fecaca', cursor: 'pointer', padding: '10px', borderRadius:'10px', color: '#ef4444', transition: 'all 0.2s' }}
+                title="Sign Out"
+            >
+                <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color="#ef4444" />
+            </button>
+        </div>
+
+        {/* 2. NAVIGATION */}
+        <div style={{ padding: '0 16px 24px 16px', borderBottom: '1px solid #e5e7eb' }}>
+            <div 
+                onClick={() => setSelectedPatientId(null)}
+                style={{ 
+                    padding: '12px 16px', borderRadius: '12px', cursor: 'pointer',
+                    background: selectedPatientId === null ? '#eff6ff' : 'transparent',
+                    color: selectedPatientId === null ? '#1d4ed8' : '#64748b',
+                    fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px',
+                    transition: 'all 0.2s'
+                }}
+            >
+                <span>📊</span>
+                <span>Overview Dashboard</span>
+            </div>
+        </div>
+
+        {/* 3. PATIENT LIST */}
+        <div style={{ padding: '20px 24px 10px 24px' }}>
+          <ThemedText type="defaultSemiBold" style={{color: '#334155'}}>My Patients</ThemedText>
+          <div style={{ marginTop: '12px' }}>
              <StyledInput icon="person.fill" placeholder="Search patients..." value={patientSearch} onChangeText={setPatientSearch} />
           </div>
         </div>
-        <div style={{ overflowY: 'auto', flex: 1 }}>
+
+        <div style={{ overflowY: 'auto', flex: 1, paddingBottom: '20px' }}>
           {loading ? <div style={{padding: 20}}>Loading...</div> : filteredPatients.map(p => (
-            <div key={p.id} onClick={() => setSelectedPatientId(p.id)} style={{ padding: '16px 24px', borderBottom: '1px solid #f3f4f6', cursor: 'pointer', background: selectedPatientId === p.id ? '#eff6ff' : 'transparent', borderLeft: selectedPatientId === p.id ? '4px solid #0a7ea4' : '4px solid transparent' }}>
+            <div key={p.id} onClick={() => setSelectedPatientId(p.id)} style={{ padding: '14px 24px', cursor: 'pointer', background: selectedPatientId === p.id ? '#f1f5f9' : 'transparent', borderLeft: selectedPatientId === p.id ? '4px solid #0f172a' : '4px solid transparent' }}>
               <div className="row gap-2" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: 40, height: 40, borderRadius: '20px', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#6b7280' }}>
+                <div style={{ width: 36, height: 36, borderRadius: '18px', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#64748b', fontSize: '0.9rem' }}>
                     {p.full_name ? p.full_name.charAt(0) : '?'}
                 </div>
                 <div style={{flex: 1}}>
                     <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                        <ThemedText type="defaultSemiBold">{p.full_name || 'Unnamed'}</ThemedText>
-                        {notifications.has(p.id) && <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#2563eb', boxShadow: '0 0 0 2px white' }} title="New Activity"></div>}
+                        <span style={{fontWeight: '600', color: '#334155'}}>{p.full_name || 'Unnamed'}</span>
+                        {notifications.has(p.id) && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6' }} title="New Activity"></div>}
                     </div>
-                    <div style={{ fontSize: '12px', color: 'gray' }}>ID: {p.id.slice(0, 4)}...</div>
                 </div>
               </div>
             </div>
           ))}
-        </div>
-        <div style={{ padding: 20, borderTop: '1px solid #eee' }}>
-            <button onClick={() => { supabase.auth.signOut(); navigate('/'); }} style={{ width: '100%', padding: 10, cursor: 'pointer', background: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: 8 }}>Sign Out</button>
         </div>
       </div>
 
@@ -234,14 +341,12 @@ export default function DoctorDashboard() {
       <div style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
         {activePatient ? (
             <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-                
-                {/* Header (Button Removed) */}
+                {/* PATIENT DASHBOARD VIEW (Unchanged) */}
                 <div style={{ marginBottom: '30px' }}>
                     <h1 style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{activePatient.full_name}</h1>
                     <p style={{ color: '#6b7280', margin: 0 }}>Patient Dashboard</p>
                 </div>
 
-                {/* ACTIVE PROGRAM (Button Added Here) */}
                 <div style={{ marginBottom: '40px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e5e7eb', paddingBottom: '10px', marginBottom: '20px' }}>
                         <h3 style={{ margin: 0, color: '#374151' }}>Active Exercise Program</h3>
@@ -258,11 +363,9 @@ export default function DoctorDashboard() {
 
                                 return (
                                     <div key={assign.id} style={{ 
-                                        // UPDATED: White background if not done
                                         background: isDoneToday ? '#ecfdf5' : 'white', 
                                         color: isDoneToday ? '#065f46' : '#11181C',
                                         padding: '16px', borderRadius: '12px',
-                                        // UPDATED: Border logic
                                         border: isDoneToday ? '1px solid #34d399' : '1px solid #e5e7eb',
                                         boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                                         position: 'relative' 
@@ -270,7 +373,6 @@ export default function DoctorDashboard() {
                                         <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
                                             <h4 style={{ margin: '0 0 5px 0' }}>{getExerciseName(assign.exercises)}</h4>
                                             <div style={{display:'flex', gap: '8px'}}>
-                                                {/* UPDATED: Buttons are now grey/dark so they show on white bg */}
                                                 <button onClick={() => handleOpenEditModal(assign)} style={{ background: 'none', border: 'none', color: isDoneToday ? '#065f46' : '#9ca3af', cursor: 'pointer', fontSize: '1.2rem', padding: 0 }} title="Edit">✏️</button>
                                                 <button onClick={() => handleUnassign(assign.id)} style={{ background: 'none', border: 'none', color: isDoneToday ? '#065f46' : '#9ca3af', cursor: 'pointer', fontSize: '1.5rem', padding: 0 }} title="Unassign">×</button>
                                             </div>
@@ -286,7 +388,6 @@ export default function DoctorDashboard() {
                     )}
                 </div>
 
-                {/* ACTIVITY FEED */}
                 <h3 style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '10px', marginBottom: '20px', color: '#374151' }}>Activity Feed</h3>
                 {loadingLogs ? <p>Loading activity...</p> : patientLogs.length === 0 ? <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af', background: 'white', borderRadius: '12px', border: '1px dashed #e5e7eb' }}>No activity recorded yet.</div> : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -298,7 +399,6 @@ export default function DoctorDashboard() {
                             allMessages.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
                             const uniqueMessages = allMessages.filter((msg, index, self) => index === 0 || !(msg.sender === self[index-1].sender && msg.context === self[index-1].context));
                             const hasChat = uniqueMessages.length > 0;
-
                             const targetReps = log.assignments?.custom_goal || log.assignments?.exercises?.default_goal || 8;
                             const isComplete = log.total_reps >= targetReps;
 
@@ -336,10 +436,125 @@ export default function DoctorDashboard() {
                     </div>
                 )}
             </div>
-        ) : <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#9ca3af' }}><p>Select a patient from the left to view their dashboard.</p></div>}
+        ) : (
+            // --- NEW: BALANCED HOME DASHBOARD ---
+            <div style={{ maxWidth: '900px', margin: '0 auto', paddingTop: '40px' }}>
+                <h1 style={{ fontSize: '2.5rem', marginBottom: '8px' }}>Welcome, {doctorName}</h1>
+                <p style={{ color: '#64748b', fontSize: '1.2rem', marginBottom: '40px' }}>Here is what's happening with your patients today.</p>
+
+                {/* STATS ROW */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '40px' }}>
+                    <div style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                        <div style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '8px', fontWeight: '600' }}>TOTAL PATIENTS</div>
+                        <div style={{ fontSize: '3rem', fontWeight: '800', color: '#0f172a' }}>{patients.length}</div>
+                    </div>
+                    <div style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                        <div style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '8px', fontWeight: '600' }}>HIGH PAIN ALERTS</div>
+                        <div style={{ fontSize: '3rem', fontWeight: '800', color: highPainAlerts.length > 0 ? '#ef4444' : '#22c55e' }}>{highPainAlerts.length}</div>
+                    </div>
+                </div>
+
+                {/* BOTTOM SPLIT: ACTIVITY vs ALERTS */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                    
+                    {/* LEFT: RECENT ACTIVITY (Positive) */}
+                    <div>
+                        <h3 style={{ color: '#0f172a', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', marginBottom: '20px', display:'flex', alignItems:'center', gap:'8px' }}>
+                            <span>✅</span> Recent Activity
+                        </h3>
+                        {recentActivity.length === 0 ? (
+                            <div style={{ padding: '30px', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #e2e8f0', textAlign: 'center', color: '#94a3b8' }}>
+                                No recent activity logged.
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {recentActivity.map((log, idx) => (
+                                    <div key={idx} onClick={() => setSelectedPatientId(log.patient_id)} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'white', border: '1px solid #e5e7eb', padding: '16px', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.1s' }}>
+                                        <div style={{width: 32, height: 32, background: '#dcfce7', color:'#166534', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1rem'}}>✓</div>
+                                        <div>
+                                            <div style={{ fontWeight: 'bold', color: '#0f172a' }}>{log.name}</div>
+                                            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Completed {log.exercise}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* RIGHT: ATTENTION NEEDED (High Pain > 3 or Inactive) */}
+                    <div>
+                        <h3 style={{ color: '#ef4444', borderBottom: '1px solid #fecaca', paddingBottom: '12px', marginBottom: '20px', display:'flex', alignItems:'center', gap:'8px' }}>
+                            <span>⚠️</span> Attention Needed
+                        </h3>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            
+                            {/* 1. PAIN ALERTS */}
+                            {highPainAlerts.length === 0 && inactivePatients.length === 0 ? (
+                                <div style={{ padding: '30px', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #e2e8f0', textAlign: 'center', color: '#94a3b8' }}>
+                                    No alerts. Everyone is doing great!
+                                </div>
+                            ) : (
+                                <>
+                                    {highPainAlerts.length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase' }}>Reported Pain</div>
+                                            {highPainAlerts.map((alert, idx) => {
+                                                const isSevere = alert.score >= 7;
+                                                const badgeColor = isSevere ? '#ef4444' : '#f59e0b';
+                                                
+                                                return (
+                                                    <div key={idx} onClick={() => setSelectedPatientId(alert.patient_id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', border: '1px solid #e5e7eb', padding: '16px', borderRadius: '12px', cursor: 'pointer' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                            <div style={{width: 32, height: 32, background: badgeColor, color:'white', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.8rem', fontWeight:'bold'}}>
+                                                                {alert.score}
+                                                            </div>
+                                                            <div>
+                                                                <div style={{ fontWeight: 'bold', color: '#0f172a' }}>{alert.name}</div>
+                                                                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Reported pain in {alert.exercise}</div>
+                                                            </div>
+                                                        </div>
+                                                        <button 
+                                                            onClick={(e) => handleDismissAlert(e, alert.log_id)}
+                                                            style={{ background: 'white', border: '1px solid #e5e7eb', color: '#94a3b8', width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.2rem' }}
+                                                            title="Mark as Handled"
+                                                            onMouseOver={(e) => e.currentTarget.style.color = '#ef4444'}
+                                                            onMouseOut={(e) => e.currentTarget.style.color = '#94a3b8'}
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+
+                                    {/* 2. INACTIVE PATIENTS */}
+                                    {inactivePatients.length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', marginTop: '10px' }}>Inactive (4+ Days)</div>
+                                            {inactivePatients.map((p, idx) => (
+                                                <div key={idx} onClick={() => setSelectedPatientId(p.id)} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#f8fafc', border: '1px dashed #cbd5e1', padding: '16px', borderRadius: '12px', cursor: 'pointer' }}>
+                                                    <div style={{width: 32, height: 32, background: '#cbd5e1', color:'white', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1rem'}}>?</div>
+                                                    <div>
+                                                        <div style={{ fontWeight: 'bold', color: '#475569' }}>{p.name}</div>
+                                                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Last active: {p.lastSeen}</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        )}
       </div>
 
-      {/* --- MODAL --- */}
+      {/* --- MODAL (Same as before) --- */}
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000 }}>
             <div style={{ background: 'white', borderRadius: '16px', width: '800px', height: '600px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', display: 'flex', flexDirection: 'column' }}>
@@ -378,13 +593,7 @@ export default function DoctorDashboard() {
                                     Daily Rep Goal {selectedExercise.is_sided ? '(Per Side)' : ''}
                                 </label>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <input 
-                                        type="number" 
-                                        min="1" 
-                                        value={rxReps} 
-                                        onChange={(e) => setRxReps(Number(e.target.value))} 
-                                        style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '1rem' }} 
-                                    />
+                                    <input type="number" min="1" value={rxReps} onChange={(e) => setRxReps(Number(e.target.value))} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '1rem' }} />
                                 </div>
                                 {selectedExercise.is_sided && (
                                     <div style={{fontSize: '0.8rem', color: '#6b7280', marginTop: '6px', background: '#f3f4f6', padding: '8px', borderRadius: '6px'}}>

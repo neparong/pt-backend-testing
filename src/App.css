@@ -148,3 +148,77 @@
   100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 }
 @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+/* NEW: RESPONSIVE LAYOUTS */
+
+/* 1. The "Card" Container (For Sign In / Sign Up) */
+.auth-page-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f3f4f6; /* Light gray background */
+  padding: 20px;
+}
+
+.auth-card {
+  background: white;
+  width: 100%;
+  max-width: 480px; /* Standard mobile/tablet width */
+  padding: 40px;
+  border-radius: 24px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.08); /* Nice soft shadow */
+}
+
+/* 2. Landing Page Scaling */
+.landing-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background: radial-gradient(circle at top right, #2563eb, #1e40af);
+  color: white;
+  text-align: center;
+}
+
+.landing-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px; /* Much wider on desktop */
+}
+
+/* Responsive Text Scaling */
+.landing-title {
+  font-size: clamp(3rem, 6vw, 5rem); /* Responsive font! 3rem on mobile, 5rem on desktop */
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 24px;
+  letter-spacing: -0.03em;
+}
+
+.landing-subtitle {
+  font-size: clamp(1.2rem, 2vw, 1.5rem);
+  opacity: 0.9;
+  line-height: 1.6;
+  max-width: 700px;
+  margin: 0 auto 40px auto;
+}
+
+.landing-buttons {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+  max-width: 500px;
+}
+
+/* Make buttons stack on mobile, side-by-side on desktop */
+@media (max-width: 600px) {
+  .landing-buttons {
+    flex-direction: column;
+  }
+}
