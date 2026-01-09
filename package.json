@@ -13,6 +13,7 @@
     "@google/generative-ai": "^0.24.1",
     "@mediapipe/tasks-vision": "^0.10.22-rc.20250304",
     "@supabase/supabase-js": "^2.89.0",
+    "framer-motion": "^12.24.12",
     "lucide-react": "^0.562.0",
     "microsoft-cognitiveservices-speech-sdk": "^1.47.0",
     "react": "^19.2.0",
