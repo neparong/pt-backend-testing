@@ -1,12 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../services/supabaseClient";
 import { motion } from "framer-motion";
-let patientId = 0;
-const { data: settings } = await supabase
-  .from("user_settings")
-  .select("judging_strength, feedback_level")
-  .eq("user_id", patientId)
-  .single();
+import { loadAndApplyUserSettings } from "../services/settings";
 
 export default function PatientSettings() {
   const [loading, setLoading] = useState(true);
@@ -23,28 +18,7 @@ export default function PatientSettings() {
      LOAD SETTINGS
   ===================== */
   useEffect(() => {
-    const loadSettings = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      const { data } = await supabase
-        .from("user_settings")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-
-      if (data) {
-        setSettings(data);
-        applySettings(data);
-      }
-
-      setLoading(false);
-    };
-
-    loadSettings();
+    loadAndApplyUserSettings()
   }, []);
 
   /* =====================

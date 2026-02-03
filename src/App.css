@@ -9,13 +9,24 @@
   --success: #22c55e;
   --warning: #f59e0b;
   --bg-subtle: #f8fafc;
+/* BUTTON VARIABLES */
+  --btn-black-bg: #000000;
+  --btn-blue-bg: #2563eb; 
+  --font-scale: 1;
+  --bg-color: #ffffff;
+  --text-color: #0f172a;
 }
+[data-theme="dark"] {
+  --bg-color: #0b1220;
+  --text-color: #e5e7eb;
+}
+
 
 body {
   margin: 0;
   font-family: var(--font-main);
   -webkit-font-smoothing: antialiased;
-  background-color: var(--bg-subtle);
+  background-color: var(--bg-color);
   color: #0f172a;
 }
 
@@ -220,7 +231,7 @@ button, input, select, textarea {
 
 /* The Background Mesh - subtle and premium */
 .dashboard-container {
-  background-color: #f8fafc;
+  background-color: var(--bg-color);
   background-image: 
     radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.03) 0px, transparent 50%),
     radial-gradient(at 100% 0%, rgba(37, 99, 235, 0.03) 0px, transparent 50%);

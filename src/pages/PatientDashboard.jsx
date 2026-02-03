@@ -4,6 +4,7 @@ import { supabase } from '../services/supabaseClient';
 import { IconSymbol } from '../components/IconSymbol';
 import { ThemedText } from '../components/ThemedText';
 import ActivityRing from '../components/ActivityRing'; 
+import { loadAndApplyUserSettings } from "../services/settings";
 import { motion } from 'framer-motion'; // 👈 Animation Library
 import '../App.css'; 
 
@@ -26,7 +27,7 @@ export default function PatientDashboard() {
     const setupRealtime = async () => {
         // 1. Load initial data
         await fetchDashboardData();
-
+        //loadAndApplyUserSettings()
         // 2. Get current user ID for the subscription filter
         const { data: { user } } = await supabase.auth.getUser();
         
@@ -52,7 +53,6 @@ export default function PatientDashboard() {
     };
 
     setupRealtime();
-
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
@@ -180,6 +180,10 @@ export default function PatientDashboard() {
   return (
     <motion.div 
       className="dashboard-container"
+      style={{
+        background: "var(--bg)",
+        color: "var(--text)",
+      }}
       initial="hidden"
       animate="visible"
       variants={containerVariants}
@@ -207,7 +211,7 @@ export default function PatientDashboard() {
           </div>
           
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-            <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#1e40af', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.2rem' }} onClick={() => navigate('/patientSettings')}>
+            <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#1e40af', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.2rem' }} /*onClick={() => navigate('/patientSettings')}*/>
               {userInitials}
             </div>
             <button 
