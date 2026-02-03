@@ -8,13 +8,14 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "install": "npm install react react-dom react-router-dom react-webcam lucide-react @supabase/supabase-js @google/generative-ai @mediapipe/tasks-vision vite @vitejs/plugin-react-swc eslint eslint-plugin-react-hooks eslint-plugin-react-refresh @eslint/js globals @types/react @types/react-dom microsoft-cognitiveservices-speech-sd framer-motion"
+    "install": "npm install react react-dom react-router-dom react-webcam lucide-react @supabase/supabase-js @google/generative-ai @mediapipe/tasks-vision vite @vitejs/plugin-react-swc eslint eslint-plugin-react-hooks eslint-plugin-react-refresh @eslint/js globals @types/react @types/react-dom microsoft-cognitiveservices-speech-sd framer-motion jspdf"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@mediapipe/tasks-vision": "^0.10.32",
     "@supabase/supabase-js": "^2.94.0",
     "framer-motion": "^12.31.0",
+    "jspdf": "^4.1.0",
     "lucide-react": "^0.562.0",
     "microsoft-cognitiveservices-speech-sdk": "^1.47.0",
     "react": "^19.2.4",

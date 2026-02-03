@@ -5,7 +5,80 @@ import { ThemedText } from '../components/ThemedText';
 import { StyledInput } from '../components/StyledInput';
 import { IconSymbol } from '../components/IconSymbol';
 import { motion, AnimatePresence } from 'framer-motion';
+import jsPDF from "jspdf";
 import '../App.css';
+
+const generatePatientPDF = async (patient) => {
+  try {
+    // Fetch patient-specific data
+    const { data: logs } = await supabase
+      .from('workout_logs')
+      .select(`
+        created_at,
+        pain_rating,
+        total_reps,
+        clean_reps,
+        assignments (
+          custom_goal,
+          exercises ( name )
+        )
+      `)
+      .eq('patient_id', patient.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    const doc = new jsPDF();
+
+    // Header
+    doc.setFontSize(18);
+    doc.text("Physical Therapy Progress Report", 14, 20);
+
+    doc.setFontSize(12);
+    doc.text(`Patient: ${patient.full_name}`, 14, 32);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 40);
+
+    let y = 55;
+
+    doc.setFontSize(14);
+    doc.text("Recent Activity", 14, y);
+    y += 10;
+
+    doc.setFontSize(10);
+
+    if (!logs || logs.length === 0) {
+      doc.text("No activity recorded.", 14, y);
+    } else {
+      logs.forEach((log, i) => {
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+        }
+
+        const exerciseName =
+          log.assignments?.exercises?.name || "Exercise";
+        const reps = `${log.clean_reps}/${log.total_reps}`;
+        const pain =
+          log.pain_rating === null ? "N/A" : log.pain_rating;
+
+        doc.text(
+          `${i + 1}. ${exerciseName} | Reps: ${reps} | Pain: ${pain}`,
+          14,
+          y
+        );
+
+        y += 8;
+      });
+    }
+
+    doc.save(
+      `${patient.full_name.replace(/\s+/g, "_")}_PT_Report.pdf`
+    );
+  } catch (err) {
+    console.error(err);
+    alert("Failed to generate PDF");
+  }
+};
+
 
 export default function DoctorDashboard() {
   const navigate = useNavigate();
@@ -356,22 +429,56 @@ export default function DoctorDashboard() {
         <div style={{ overflowY: 'auto', flex: 1, paddingBottom: '20px' }}>
           {loading ? <div style={{padding: 20}}>Loading...</div> : filteredPatients.map(p => (
             <div 
-                key={p.id} 
-                onClick={() => setSelectedPatientId(p.id)} 
-                className={`patient-list-item ${selectedPatientId === p.id ? 'selected' : ''}`}
-            >
-              <div className="row gap-2" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: 36, height: 36, borderRadius: '18px', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#64748b', fontSize: '0.9rem' }}>
-                    {p.full_name ? p.full_name.charAt(0) : '?'}
-                </div>
-                <div style={{flex: 1}}>
-                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                        <span style={{fontWeight: '600', color: '#334155'}}>{p.full_name || 'Unnamed'}</span>
-                        {notifications.has(p.id) && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6' }} title="New Activity"></div>}
-                    </div>
-                </div>
-              </div>
-            </div>
+  key={p.id} 
+  onClick={() => setSelectedPatientId(p.id)} 
+  className={`patient-list-item ${selectedPatientId === p.id ? 'selected' : ''}`}
+  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+>
+  {/* LEFT: patient info */}
+  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    <div style={{
+      width: 36,
+      height: 36,
+      borderRadius: '18px',
+      background: '#e2e8f0',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontWeight: 'bold',
+      color: '#64748b',
+      fontSize: '0.9rem'
+    }}>
+      {p.full_name ? p.full_name.charAt(0) : '?'}
+    </div>
+
+    <div>
+      <div style={{ fontWeight: 600, color: '#334155' }}>
+        {p.full_name || 'Unnamed'}
+      </div>
+    </div>
+  </div>
+
+  {/* RIGHT: PDF button */}
+  <button
+    onClick={(e) => {
+      e.stopPropagation(); // 🔴 critical
+      generatePatientPDF(p);
+    }}
+    title="Download PDF Report"
+    style={{
+      background: 'white',
+      border: '1px solid #e5e7eb',
+      borderRadius: '8px',
+      padding: '6px 8px',
+      cursor: 'pointer',
+      fontSize: '0.85rem',
+      color: '#2563eb'
+    }}
+  >
+    📄
+  </button>
+</div>
+
           ))}
         </div>
       </motion.div>
