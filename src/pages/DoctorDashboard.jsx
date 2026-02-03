@@ -8,74 +8,189 @@ import { motion, AnimatePresence } from 'framer-motion';
 import jsPDF from "jspdf";
 import '../App.css';
 
+
+
+/* ============================
+   BILLING CONSTANTS (837P)
+============================ */
+
+// CPT codes (Physical Therapy – common)
+const CPT_CODES = {
+  THERAPEUTIC_EXERCISE: {
+    code: "97110",
+    description: "Therapeutic exercises",
+    rate: 35, // example $ per unit
+  },
+  THERAPEUTIC_ACTIVITY: {
+    code: "97530",
+    description: "Therapeutic activities",
+    rate: 40,
+  },
+};
+
+// ICD-10 mapping by pain severity / context
+const ICD10_MAP = {
+  LOW_PAIN: "M25.50",        // Joint pain, unspecified
+  MODERATE_PAIN: "M25.59",   // Other joint disorder
+  HIGH_PAIN: "G89.29",       // Chronic pain
+  UNKNOWN: "Z00.00",         // General exam
+};
+
+// Provider (eventually comes from profiles table)
+const PROVIDER_INFO = {
+  name: "PhysioAI Physical Therapy",
+  address: "123 Therapy Lane, Anytown, VA 22101",
+  npi: "1234567890", // placeholder
+};
+
+const getICD10Code = (logs = []) => {
+  if (!logs.length) return ICD10_MAP.UNKNOWN;
+
+  const avgPain =
+    logs.reduce((sum, l) => sum + (l.pain_rating ?? 0), 0) / logs.length;
+
+  if (avgPain >= 6) return ICD10_MAP.HIGH_PAIN;
+  if (avgPain >= 3) return ICD10_MAP.MODERATE_PAIN;
+  return ICD10_MAP.LOW_PAIN;
+};
+
+const getCPTSummary = (logs = []) => {
+  const units = Math.max(logs.length, 1);
+
+  return {
+    code: CPT_CODES.THERAPEUTIC_EXERCISE.code,
+    description: CPT_CODES.THERAPEUTIC_EXERCISE.description,
+    units,
+    rate: CPT_CODES.THERAPEUTIC_EXERCISE.rate,
+    total: units * CPT_CODES.THERAPEUTIC_EXERCISE.rate,
+  };
+};
+
+const getServiceDateRange = (logs = []) => {
+  if (!logs.length) return "";
+
+  const dates = logs.map(l => new Date(l.created_at));
+  const start = new Date(Math.min(...dates));
+  const end = new Date(Math.max(...dates));
+
+  return `${start.toLocaleDateString()} – ${end.toLocaleDateString()}`;
+};
+
+
 const generatePatientPDF = async (patient) => {
+  if (!patient?.id) return;
+
   try {
-    // Fetch patient-specific data
     const { data: logs } = await supabase
-      .from('workout_logs')
+      .from("workout_logs")
       .select(`
         created_at,
         pain_rating,
         total_reps,
         clean_reps,
         assignments (
-          custom_goal,
           exercises ( name )
         )
       `)
-      .eq('patient_id', patient.id)
-      .order('created_at', { ascending: false })
-      .limit(20);
+      .eq("patient_id", patient.id)
+      .order("created_at", { ascending: true });
 
-    const doc = new jsPDF();
+    const doc = new jsPDF({ unit: "mm", format: "letter" });
+    let y = 12;
 
-    // Header
-    doc.setFontSize(18);
-    doc.text("Physical Therapy Progress Report", 14, 20);
+    const line = () => {
+      doc.line(10, y, 200, y);
+      y += 4;
+    };
 
-    doc.setFontSize(12);
-    doc.text(`Patient: ${patient.full_name}`, 14, 32);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 40);
+    const field = (label, value = "") => {
+      doc.setFontSize(9);
+      doc.text(`${label}: ${value}`, 12, y);
+      y += 5;
+    };
 
-    let y = 55;
+    const icd10 = getICD10Code(logs);
+    const cpt = getCPTSummary(logs);
+    const serviceDates = getServiceDateRange(logs);
 
+    /* HEADER */
     doc.setFontSize(14);
-    doc.text("Recent Activity", 14, y);
-    y += 10;
+    doc.text("CMS-1500 / 837P CLAIM SUMMARY", 105, y, { align: "center" });
+    y += 6;
+    line();
 
-    doc.setFontSize(10);
+    /* PROVIDER */
+    doc.setFontSize(11);
+    doc.text("PROVIDER INFORMATION", 12, y); y += 4; line();
+    field("Provider Name", PROVIDER_INFO.name);
+    field("Address", PROVIDER_INFO.address);
+    field("NPI", PROVIDER_INFO.npi);
 
-    if (!logs || logs.length === 0) {
-      doc.text("No activity recorded.", 14, y);
+    /* PATIENT */
+    y += 2;
+    doc.text("PATIENT INFORMATION", 12, y); y += 4; line();
+    field("Patient Name", patient.full_name);
+    field("DOB", "MM/DD/YYYY");
+    field("Insurance ID", "INS-XXXXXXX");
+
+    /* CLAIM */
+    y += 2;
+    doc.text("CLAIM DETAILS", 12, y); y += 4; line();
+    field("Dates of Service", serviceDates);
+    field("Place of Service", "11 (Office)");
+    field("Total Charges", `$${cpt.total.toFixed(2)}`);
+
+    /* DIAGNOSIS / PROCEDURES */
+    y += 2;
+    doc.text("DIAGNOSIS & PROCEDURES", 12, y); y += 4; line();
+    field("ICD-10 Diagnosis Code", icd10);
+    field(
+      "CPT Code",
+      `${cpt.code} – ${cpt.description}`
+    );
+    field("Units", cpt.units);
+    field("Charge per Unit", `$${cpt.rate.toFixed(2)}`);
+
+    /* ATTACHMENT */
+    y += 4;
+    doc.text("ATTACHMENT: THERAPY ACTIVITY LOG", 12, y); y += 4; line();
+    doc.setFontSize(9);
+
+    if (!logs.length) {
+      doc.text("No recorded therapy activity.", 12, y);
     } else {
       logs.forEach((log, i) => {
-        if (y > 270) {
+        if (y > 265) {
           doc.addPage();
-          y = 20;
+          y = 15;
         }
 
-        const exerciseName =
-          log.assignments?.exercises?.name || "Exercise";
-        const reps = `${log.clean_reps}/${log.total_reps}`;
-        const pain =
-          log.pain_rating === null ? "N/A" : log.pain_rating;
+        const ex = log.assignments?.exercises?.name || "Exercise";
+        const reps = `${log.clean_reps ?? "-"}/${log.total_reps ?? "-"}`;
+        const pain = log.pain_rating ?? "N/A";
+        const date = log.created_at.split("T")[0];
 
         doc.text(
-          `${i + 1}. ${exerciseName} | Reps: ${reps} | Pain: ${pain}`,
-          14,
+          `${i + 1}. ${date} | ${ex} | Reps: ${reps} | Pain: ${pain}`,
+          12,
           y
         );
-
-        y += 8;
+        y += 5;
       });
     }
 
+    /* SIGNATURE */
+    y += 6; line();
+    doc.text("Provider Signature: ____________________________", 12, y);
+    y += 6;
+    doc.text("Date: ____________________", 140, y);
+
     doc.save(
-      `${patient.full_name.replace(/\s+/g, "_")}_PT_Report.pdf`
+      `${patient.full_name.replace(/\s+/g, "_")}_837P_Claim.pdf`
     );
   } catch (err) {
     console.error(err);
-    alert("Failed to generate PDF");
+    alert("Failed to generate insurance-grade PDF");
   }
 };
 
