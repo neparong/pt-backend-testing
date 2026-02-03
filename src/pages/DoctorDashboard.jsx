@@ -510,6 +510,11 @@ export default function DoctorDashboard() {
                                 <button 
                                     style={{ background: 'white', color: '#0f172a', padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}
                                     title="Download report for insurance reimbursement"
+                                    onClick={(e) => {
+                                    e.stopPropagation(); // 🔴 critical
+                                    if (!activePatient) return;
+                                    generatePatientPDF(activePatient);
+                                }}
                                 >
                                     📄 Export RTM Data
                                 </button>
