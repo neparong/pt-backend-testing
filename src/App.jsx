@@ -7,6 +7,7 @@ import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import PatientDashboard from './pages/PatientDashboard';
 import DoctorDashboard from './pages/DoctorDashboard';
+import PatientSettings from './pages/PatientSettings';
 import ExercisePage from './pages/ExercisePage';
 import { ErrorBoundary } from './ErrorBoundary';
 import { lazy, Suspense } from 'react';
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/dashboard" element={<PatientDashboard />} />
+          <Route path="/patientSettings" element={<PatientSettings />} />
           <Route path="/doctor"element={<Suspense fallback={<div>Loading…</div>}><DoctorDashboard /></Suspense>}/>
           <Route path="/exercise/:type" element={<ExercisePage />} />
         </Routes>

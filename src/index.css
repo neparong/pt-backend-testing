@@ -12,15 +12,24 @@
   /* BUTTON VARIABLES */
   --btn-black-bg: #000000;
   --btn-blue-bg: #2563eb; 
+  --font-scale: 1;
+  --bg-color: #ffffff;
+  --text-color: #0f172a;
+}
+[data-theme="dark"] {
+  --bg-color: #0b1220;
+  --text-color: #e5e7eb;
 }
 
 /* 1. GLOBAL RESET */
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background-color: var(--bg-body);
-  color: var(--text-primary);
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-size: calc(16px * var(--font-scale));
   height: 100vh;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 /* 2. LAYOUT CONTAINERS */

@@ -207,7 +207,7 @@ export default function PatientDashboard() {
           </div>
           
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-            <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#1e40af', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.2rem' }}>
+            <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#1e40af', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.2rem' }} onClick={() => navigate('/patientSettings')}>
               {userInitials}
             </div>
             <button 
