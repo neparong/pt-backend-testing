@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient'; 
 import { IconSymbol } from '../components/IconSymbol';
+import { ThemedText } from '../components/ThemedText';
+import { StyledInput } from '../components/StyledInput';
 import { motion } from 'framer-motion'; // 👈 Animation
 import '../App.css'; 
 

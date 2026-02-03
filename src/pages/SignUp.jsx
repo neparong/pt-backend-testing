@@ -76,7 +76,7 @@ export default function SignUp() {
     <span />
   </div>
 
-    <div className="container auth-card" style={{ paddingTop: '40px', maxWidth: '500px' }}>
+    <div className="container" style={{ paddingTop: '40px', maxWidth: '500px' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
         <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
           <IconSymbol name="xmark" size={28} color="#000" />
