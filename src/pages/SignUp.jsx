@@ -62,7 +62,16 @@ export default function SignUp() {
   };
 
   return (
-    <div className="container" style={{ paddingTop: '40px', maxWidth: '500px' }}>
+    <div className="auth-bg">
+  <div className="auth-grid" />
+  <div className="auth-noise" />
+  <div className="auth-orbs">
+    <span />
+    <span />
+    <span />
+  </div>
+
+    <div className="container auth-card" style={{ paddingTop: '40px', maxWidth: '500px' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
         <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
           <IconSymbol name="xmark" size={28} color="#000" />
@@ -100,6 +109,7 @@ export default function SignUp() {
         <span style={{ color: 'gray' }}>Already have an account? </span>
         <span onClick={() => navigate('/signin')} style={{ color: '#2563eb', fontWeight: '600', cursor: 'pointer' }}>Sign in</span>
       </div>
+    </div>
     </div>
   );
 }
