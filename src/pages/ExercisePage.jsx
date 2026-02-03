@@ -5,6 +5,7 @@ import CameraView from '../components/CameraView';
 import ChatInterface from '../components/ChatInterface'; 
 import { IconSymbol } from '../components/IconSymbol';
 import { ThemedText } from '../components/ThemedText';
+import { motion } from 'framer-motion'; 
 import '../App.css'; 
 
 export default function ExercisePage() {
@@ -29,7 +30,6 @@ export default function ExercisePage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("No user found");
 
-        // A. Fetch Standard Exercise Details
         const { data: exData, error: exError } = await supabase
           .from('exercises')
           .select('id, name, default_instructions, default_goal, is_sided')
@@ -38,7 +38,6 @@ export default function ExercisePage() {
 
         if (exError) throw exError;
 
-        // B. Fetch Doctor's Custom Assignment
         const { data: assignData } = await supabase
           .from('assignments')
           .select('id, custom_goal')
@@ -47,12 +46,7 @@ export default function ExercisePage() {
           .eq('is_active', true)
           .maybeSingle();
 
-        // C. LOGIC FIX: Handle "Per Side" Math
-        // If doctor says "8", and it's sided, they mean 8 PER LEG (16 total).
         const baseGoal = assignData?.custom_goal || exData.default_goal;
-        
-        // If sided, Total = 8 * 2 = 16. Switch at 8.
-        // If not sided, Total = 8.
         const calculatedTotal = exData.is_sided ? (baseGoal * 2) : baseGoal;
         const switchPoint = exData.is_sided ? baseGoal : null;
 
@@ -63,9 +57,9 @@ export default function ExercisePage() {
             title: exData.name,
             instructions: exData.default_instructions,
             isSided: exData.is_sided,
-            baseGoal: baseGoal, // The number the human thinks of (e.g. 8)
+            baseGoal: baseGoal, 
             goal: { 
-                total: calculatedTotal, // The number the computer counts (e.g. 16)
+                total: calculatedTotal, 
                 perSide: exData.is_sided, 
                 switchAt: switchPoint 
             }
@@ -91,7 +85,6 @@ export default function ExercisePage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Ensure we have an assignment to link to
       if (assignmentId) {
         const { data: logData } = await supabase
           .from('workout_logs')
@@ -107,7 +100,6 @@ export default function ExercisePage() {
 
         if (logData) {
             setWorkoutLogId(logData.id);
-            console.log("Workout saved:", logData.id);
         }
       }
     } catch (err) {
@@ -125,14 +117,19 @@ export default function ExercisePage() {
 
   const handleStop = () => {
     setIsRunning(false);
-    setHasFinished(false); // Treat stop as "finished for now" so they can access chat
+    setHasFinished(false); 
   };
 
   if (loading) return <div style={{padding: 40, textAlign: 'center'}}>Loading Prescription...</div>;
   if (!exerciseConfig) return <div style={{padding: 40, textAlign: 'center'}}>Exercise not found.</div>;
 
   return (
-    <div className="exercise-page-container">
+    <motion.div 
+      className="exercise-page-container"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
       
       <CameraView 
         exerciseType={type} 
@@ -143,56 +140,91 @@ export default function ExercisePage() {
       />
 
       <div className="info-panel">
-        <button onClick={() => navigate('/dashboard')} style={{ background: 'none', border: 'none', cursor: 'pointer', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', color: '#6b7280' }}>
+        <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => navigate('/dashboard')} 
+            style={{ background: 'none', border: 'none', cursor: 'pointer', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1rem', color: '#6b7280' }}
+        >
             <IconSymbol name="chevron.left" size={20} color="#6b7280" /> Back
-        </button>
+        </motion.button>
 
-        <ThemedText type="title" style={{ fontSize: '2.5rem' }}>{exerciseConfig.title}</ThemedText>
+        <motion.div 
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+        >
+            <ThemedText type="title" style={{ fontSize: '2.5rem', marginBottom: '20px' }}>{exerciseConfig.title}</ThemedText>
+        </motion.div>
         
-        <div className="instruction-card">
+        <motion.div 
+            className="modern-card instruction-card"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            style={{ padding: '24px' }} 
+        >
             <h3 style={{ margin: '0 0 10px 0' }}>Instructions</h3>
             <p style={{ color: '#4b5563', lineHeight: '1.5' }}>{exerciseConfig.instructions}</p>
             
-            {/* DYNAMIC GOAL DISPLAY */}
             <div style={{ marginTop: '16px', fontWeight: 'bold', color: '#3730a3', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>Goal: {exerciseConfig.baseGoal} Reps {exerciseConfig.isSided ? '(Per Side)' : ''}</span>
                 {assignmentId && <span style={{fontSize: '0.7rem', background: '#dcfce7', color: '#166534', padding: '2px 6px', borderRadius: '4px'}}>PRESCRIBED</span>}
             </div>
-        </div>
+        </motion.div>
 
         {/* --- CONTROLS AREA --- */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
             
             {!isRunning && !hasFinished && (
-                <button className="btn-start" onClick={handleStart}>
+                <motion.button 
+                    className="btn-start" 
+                    onClick={handleStart}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
+                >
                     Start Activity
-                </button>
+                </motion.button>
             )}
 
             {isRunning && (
-                <button className="btn-start" style={{ background: '#ef4444' }} onClick={handleStop}>
+                <motion.button 
+                    className="btn-start" 
+                    style={{ background: '#ef4444' }} 
+                    onClick={handleStop}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
+                >
                     Stop / Finish Early
-                </button>
+                </motion.button>
             )}
 
             {/* POST-WORKOUT MENU */}
             {hasFinished && (
                 <>
-                    <button 
+                    {/* 👇 THIS IS THE SCRIPT-MATCHING BUTTON */}
+                    <motion.button 
                         className="btn-start" 
-                        style={{ background: '#2563eb', color: 'white', border: 'none' }} 
+                        style={{ background: '#2563eb', color: 'white', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }} 
                         onClick={() => setShowChat(true)}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.95 }}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
                     >
-                        💬 Chat with AI Assistant
-                    </button>
+                        <span style={{ fontSize: '1.2rem' }}>🎙️</span> 
+                        <span>Speak to Assistant (Hands-Free)</span>
+                    </motion.button>
 
-                    <button 
+                    <motion.button 
                         className="btn-start" 
                         style={{ background: 'white', border: '2px solid #e5e7eb', color: '#374151' }} 
                         onClick={handleStart}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.95 }}
                     >
                         ↻ Redo Exercise
-                    </button>
+                    </motion.button>
                 </>
             )}
         </div>
@@ -208,6 +240,6 @@ export default function ExercisePage() {
         />
       )}
 
-    </div>
+    </motion.div>
   );
 }

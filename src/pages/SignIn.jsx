@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabaseClient'; 
 import { IconSymbol } from '../components/IconSymbol';
-import { ThemedText } from '../components/ThemedText';
-import { StyledInput } from '../components/StyledInput';
+import { motion } from 'framer-motion'; // 👈 Animation
+import '../App.css'; 
 
 export default function SignIn() {
   const navigate = useNavigate();
@@ -11,7 +11,8 @@ export default function SignIn() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSignIn = async () => {
+  const handleSignIn = async (e) => {
+    e.preventDefault(); // Prevent form reload
     setLoading(true);
     try {
       const { data: authData, error: authError } =
@@ -31,6 +32,12 @@ export default function SignIn() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Animation Config
+  const variants = {
+    hidden: { opacity: 0, y: 20, scale: 0.95 },
+    visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: "easeOut" } }
   };
 
   return (

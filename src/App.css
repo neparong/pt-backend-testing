@@ -1,6 +1,29 @@
 /* src/App.css */
 
-/* 1. SPLIT LAYOUT */
+/* 1. IMPORT FONT (Medical/Tech Standard) */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --font-main: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --primary: #2563eb;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --bg-subtle: #f8fafc;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-main);
+  -webkit-font-smoothing: antialiased;
+  background-color: var(--bg-subtle);
+  color: #0f172a;
+}
+
+button, input, select, textarea {
+  font-family: var(--font-main);
+}
+
+/* 2. LAYOUT UTILS */
 .exercise-page-container {
   display: flex;
   flex-direction: row; 
@@ -11,42 +34,76 @@
   background-color: #f8f9fa;
   gap: 40px;
   padding: 0 40px;
+  position: relative; /* Needed for absolute score popups */
+  overflow: hidden;
 }
 
-/* 2. CAMERA COLUMN */
 .camera-section {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 20px; 
+  position: relative;
 }
 
-/* 3. THE FEEDBACK PILL (Black Text Fix) */
+/* 3. GAMIFICATION ANIMATIONS */
+
+/* Floating Score (+100) */
+@keyframes floatUpFade {
+  0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+  20% { transform: translate(-50%, -100%) scale(1.2); opacity: 1; }
+  100% { transform: translate(-50%, -250%) scale(1); opacity: 0; }
+}
+
+.score-popup {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  pointer-events: none;
+  z-index: 1000;
+  font-family: var(--font-main);
+  font-weight: 900;
+  font-size: 4rem;
+  color: #fbbf24; /* Gold */
+  text-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  white-space: nowrap;
+  animation: floatUpFade 1s ease-out forwards;
+}
+
+/* Streak Shake Effect */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px) rotate(-5deg); }
+  75% { transform: translateX(5px) rotate(5deg); }
+}
+
+.streak-badge {
+  animation: shake 0.4s ease-in-out;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 800;
+  font-size: 1.2rem;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+}
+
+/* 4. EXISTING STYLES (Preserved) */
 .feedback-pill {
-  /* Dimensions */
   padding: 14px 40px;
   min-height: 60px;
   border-radius: 50px;
-  
-  /* Text Style: ALWAYS BLACK */
   color: black !important; 
   font-weight: 900;
   font-size: 1.8rem;
   text-transform: uppercase;
   letter-spacing: 1px;
-  
-  /* Layout */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  
-  /* Visuals */
+  display: flex; align-items: center; justify-content: center;
   box-shadow: 0 4px 15px rgba(0,0,0,0.15);
   transition: background-color 0.2s ease;
   border: 4px solid transparent; 
 }
 
-/* 4. THE CAMERA BOX */
 .camera-container {
   position: relative;
   width: 800px;
@@ -57,28 +114,23 @@
   box-shadow: 0 20px 50px rgba(0,0,0,0.25);
 }
 
-/* 5. LAYERS */
 .webcam-feed {
   position: absolute; top: 0; left: 0;
   width: 100% !important; height: 100% !important;
   object-fit: cover;
-  transform: scaleX(-1); /* Mirror Video */
+  transform: scaleX(-1); 
 }
 
 .drawing-canvas {
   position: absolute; top: 0; left: 0;
   width: 100%; height: 100%;
   object-fit: cover;
-  /* NO CSS TRANSFORM HERE - WE DO IT IN JS */
   z-index: 10;
 }
 
-/* 6. INFO PANEL */
 .info-panel {
   width: 350px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  display: flex; flex-direction: column; gap: 20px;
 }
 
 .instruction-card {
@@ -103,16 +155,12 @@
 }
 .btn-start:hover { transform: scale(1.02); opacity: 0.9; }
 
-/* 7. OVERLAYS */
+/* Overlays */
 .countdown-overlay {
   position: absolute; inset: 0;
   background-color: rgba(0,0,0,0.7);
   z-index: 50;
-  display: flex; 
-  flex-direction: column; 
-  justify-content: center; 
-  align-items: center;
-  gap: 10px;
+  display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px;
 }
 .countdown-number { 
   font-size: 8rem; color: white; font-weight: 900; line-height: 1; margin: 0;
@@ -121,7 +169,7 @@
 
 .success-overlay {
   position: absolute; inset: 0;
-  background-color: rgba(100, 108, 255, 0.95); /* Vite Purple */
+  background-color: rgba(37, 99, 235, 0.95); /* Updated to Brand Blue */
   z-index: 100;
   display: flex; flex-direction: column; justify-content: center; align-items: center; color: white;
 }
@@ -142,9 +190,108 @@
   animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-@keyframes popIn {
-  0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
-  60% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+/* RESPONSIVE LAYOUTS */
+.auth-page-wrapper {
+  display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f3f4f6; padding: 20px;
 }
+.auth-card {
+  background: white; width: 100%; max-width: 480px; padding: 40px; border-radius: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+}
+.landing-container {
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; background: radial-gradient(circle at top right, #2563eb, #1e40af); color: white; text-align: center;
+}
+.landing-content {
+  flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; max-width: 1200px;
+}
+.landing-title {
+  font-size: clamp(3rem, 6vw, 5rem); font-weight: 800; line-height: 1.1; margin-bottom: 24px; letter-spacing: -0.03em;
+}
+.landing-subtitle {
+  font-size: clamp(1.2rem, 2vw, 1.5rem); opacity: 0.9; line-height: 1.6; max-width: 700px; margin: 0 auto 40px auto;
+}
+.landing-buttons {
+  display: flex; gap: 20px; width: 100%; max-width: 500px;
+}
+@media (max-width: 600px) { .landing-buttons { flex-direction: column; } }
+@keyframes popIn { 0% { transform: translate(-50%, -50%) scale(0); opacity: 0; } 60% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
 @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+/* --- MODERN UI UTILITIES --- */
+
+/* The Background Mesh - subtle and premium */
+.dashboard-container {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.03) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(37, 99, 235, 0.03) 0px, transparent 50%);
+  min-height: 100vh;
+  padding: 40px;
+}
+
+/* The "Apple Health" Style Card */
+.modern-card {
+  background: white;
+  border-radius: 24px; /* Softer corners */
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  
+  /* The "Expensive" Shadow */
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.02), 
+    0 10px 15px -3px rgba(0, 0, 0, 0.04), 
+    0 0 0 1px rgba(0,0,0,0.02);
+    
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Smooth physics */
+}
+
+/* Hover Effect: Lifts up and glows slightly */
+.modern-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.05), 
+    0 8px 10px -6px rgba(0, 0, 0, 0.01),
+    0 0 0 4px rgba(37, 99, 235, 0.05); /* Blue glow ring */
+}
+
+/* Doctor Dashboard List Items */
+.patient-list-item {
+  padding: 14px 24px;
+  cursor: pointer;
+  border-left: 4px solid transparent;
+  transition: all 0.2s ease-in-out;
+}
+
+.patient-list-item:hover {
+  background-color: #f8fafc;
+  transform: translateX(4px); /* Satisfying little nudge */
+}
+
+.patient-list-item.selected {
+  background-color: #f1f5f9;
+  border-left-color: #0f172a; /* Dark bar on the left */
+}
+
+/* Tech Grid Background */
+.hero-bg {
+  background-color: #f8fafc;
+  background-image: 
+    linear-gradient(#e2e8f0 1px, transparent 1px), 
+    linear-gradient(to right, #e2e8f0 1px, transparent 1px);
+  background-size: 50px 50px;
+  /* Fade out the grid at the bottom so it blends */
+  mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* Floating Animation */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-15px); }
+  100% { transform: translateY(0px); }
+}
+
+.float-slow { animation: float 6s ease-in-out infinite; }
+.float-medium { animation: float 5s ease-in-out infinite; animation-delay: 1s; }
+.float-fast { animation: float 4s ease-in-out infinite; animation-delay: 2s; }
