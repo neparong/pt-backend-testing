@@ -9,6 +9,7 @@
   --success: #22c55e;
   --warning: #f59e0b;
   --bg-subtle: #f8fafc;
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
 /* BUTTON VARIABLES */
   --btn-black-bg: #000000;
   --btn-blue-bg: #2563eb; 
@@ -255,12 +256,41 @@ button, input, select, textarea {
 }
 
 /* Hover Effect: Lifts up and glows slightly */
+.modern-card {
+  will-change: transform;
+}
+
 .modern-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 
-    0 20px 25px -5px rgba(0, 0, 0, 0.05), 
-    0 8px 10px -6px rgba(0, 0, 0, 0.01),
-    0 0 0 4px rgba(37, 99, 235, 0.05); /* Blue glow ring */
+  transform: translateY(-3px);
+  box-shadow:
+    0 25px 35px -10px rgba(0, 0, 0, 0.08),
+    0 0 0 3px rgba(37, 99, 235, 0.04);
+}
+
+.exercise-item {
+  transition:
+    box-shadow 0.25s var(--ease-out-soft),
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.exercise-item:hover {
+  box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+}
+h1, h2, h3 {
+  letter-spacing: -0.015em;
+}
+
+p {
+  line-height: 1.6;
+}
+.avatar-button {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.avatar-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.15);
 }
 
 /* Doctor Dashboard List Items */
@@ -306,3 +336,42 @@ button, input, select, textarea {
 .float-slow { animation: float 6s ease-in-out infinite; }
 .float-medium { animation: float 5s ease-in-out infinite; animation-delay: 1s; }
 .float-fast { animation: float 4s ease-in-out infinite; animation-delay: 2s; }
+
+.dashboard-container::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(600px at 10% 10%, rgba(37, 99, 235, 0.06), transparent 40%),
+    radial-gradient(500px at 90% 20%, rgba(99, 102, 241, 0.05), transparent 45%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dashboard-container > * {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-primary {
+  background: var(--btn-blue-bg);
+  color: white;
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition:
+    transform 0.25s var(--ease-out-soft),
+    box-shadow 0.25s var(--ease-out-soft),
+    background-color 0.2s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}

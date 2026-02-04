@@ -6,12 +6,37 @@ import ChatInterface from '../components/ChatInterface';
 import { IconSymbol } from '../components/IconSymbol';
 import { ThemedText } from '../components/ThemedText';
 import { motion } from 'framer-motion'; 
+import microSuccessSound from "../assets/success.mp3";
 import '../App.css'; 
 
 export default function ExercisePage() {
   const { type } = useParams(); 
   const navigate = useNavigate();
-  
+  //sound load
+  const successAudioRef = React.useRef(null);
+  const unlockAudio = () => {
+  if (!successAudioRef.current) return;
+
+  successAudioRef.current.muted = true;
+
+  successAudioRef.current
+    .play()
+    .then(() => {
+      successAudioRef.current.pause();
+      successAudioRef.current.currentTime = 0;
+      successAudioRef.current.muted = false;
+      console.log("✅ Audio unlocked");
+    })
+    .catch(err => {
+      console.warn("Audio unlock failed:", err);
+    });
+};
+
+  useEffect(() => {
+    successAudioRef.current = new Audio(microSuccessSound);
+    successAudioRef.current.volume = .8; // subtle, not arcade
+  }, []);
+
   // STATE
   const [exerciseConfig, setExerciseConfig] = useState(null); 
   const [assignmentId, setAssignmentId] = useState(null); 
@@ -110,6 +135,7 @@ export default function ExercisePage() {
   };
 
   const handleStart = () => {
+    unlockAudio();
     setHasFinished(false);
     setIsRunning(true);
     setShowChat(false);
@@ -119,6 +145,8 @@ export default function ExercisePage() {
     setIsRunning(false);
     setHasFinished(false); 
   };
+
+
 
   if (loading) return <div style={{padding: 40, textAlign: 'center'}}>Loading Prescription...</div>;
   if (!exerciseConfig) return <div style={{padding: 40, textAlign: 'center'}}>Exercise not found.</div>;
@@ -131,13 +159,19 @@ export default function ExercisePage() {
       transition={{ duration: 0.5 }}
     >
       
-      <CameraView 
-        exerciseType={type} 
-        goal={exerciseConfig.goal} 
-        isRunning={isRunning}
-        hasCompleted={hasFinished}
-        onComplete={handleComplete} 
+      <CameraView
+      exerciseType={type}
+      goal={exerciseConfig.goal}
+      isRunning={isRunning}
+      hasCompleted={hasFinished}
+      onComplete={handleComplete}
+      onCleanRep={() => {
+        if (!successAudioRef.current) return;
+          successAudioRef.current.currentTime = 0;
+          successAudioRef.current.play().catch(() => {});
+      }}
       />
+
 
       <div className="info-panel">
         <motion.button 

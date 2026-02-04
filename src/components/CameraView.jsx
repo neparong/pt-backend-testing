@@ -5,7 +5,7 @@ import { DrawingUtils, PoseLandmarker } from '@mediapipe/tasks-vision';
 import { getSquatFeedback, getLateralLegLiftFeedback, getBandStretchFeedback } from '../services/exerciseLogic';
 import '../App.css'; 
 
-export default function CameraView({ exerciseType, goal, isRunning, hasCompleted, onComplete }) {
+export default function CameraView({ exerciseType, goal, isRunning, hasCompleted, onComplete, onCleanRep }) {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
   const landmarkerRef = useRef(null);
@@ -164,9 +164,10 @@ export default function CameraView({ exerciseType, goal, isRunning, hasCompleted
                 repTotalFrames.current = 0;
                 repBadFrames.current = 0;
 
-                new Audio('/success.mp3').play().catch(() => {});
-                setShowCheck(true);
+                onCleanRep?.();          // 🔊 play sound (parent-controlled)
+                setShowCheck(true);      // ✅ visual feedback
                 setTimeout(() => setShowCheck(false), 800);
+
                 
                 // --- SWITCH SIDE LOGIC ---
                 // Use the REF to check if we need to switch

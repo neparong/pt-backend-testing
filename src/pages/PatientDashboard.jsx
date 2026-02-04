@@ -304,7 +304,8 @@ export default function PatientDashboard() {
                                 return (
                                     <motion.div 
                                         key={ex.id} 
-                                        whileHover={{ scale: 1.02 }} 
+                                        whileHover={{ y: -2 }}
+                                        transition={{ type: "spring", stiffness: 300, damping: 25 }}
                                         whileTap={{ scale: 0.98 }}
                                         style={{ 
                                             display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
