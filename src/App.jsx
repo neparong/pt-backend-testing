@@ -8,10 +8,10 @@ import SignUp from './pages/SignUp';
 import PatientDashboard from './pages/PatientDashboard';
 import DoctorDashboard from './pages/DoctorDashboard';
 import PatientSettings from './pages/PatientSettings';
+import Shop from './pages/Shop'
 import ExercisePage from './pages/ExercisePage';
 import { ErrorBoundary } from './ErrorBoundary';
 import { lazy, Suspense } from 'react';
-
 
 // Import Styles
 import './index.css';
@@ -29,6 +29,7 @@ export default function App() {
           <Route path="/signup" element={<SignUp />} />
           <Route path="/dashboard" element={<PatientDashboard />} />
           <Route path="/patientSettings" element={<PatientSettings />} />
+          <Route path="/shop" element={<Shop  initialPoints={720}unlockedItems={["Dark Theme"]}/>} />
           <Route path="/doctor"element={<Suspense fallback={<div>Loading…</div>}><DoctorDashboard /></Suspense>}/>
           <Route path="/exercise/:type" element={<ExercisePage />} />
         </Routes>

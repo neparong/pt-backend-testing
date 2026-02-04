@@ -1,0 +1,50 @@
+.shop-page {
+  padding: 24px;
+}
+
+.shop-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.points {
+  font-weight: bold;
+  color: gold;
+}
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.shop-card {
+  background: #111827;
+  border-radius: 16px;
+  padding: 16px;
+  text-align: center;
+  transition: transform 0.2s;
+}
+
+.shop-card:hover {
+  transform: translateY(-4px);
+}
+
+.shop-card.unlocked {
+  opacity: 0.6;
+}
+
+.preview {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+button {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
