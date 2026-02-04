@@ -6,7 +6,7 @@ import ChatInterface from '../components/ChatInterface';
 import { IconSymbol } from '../components/IconSymbol';
 import { ThemedText } from '../components/ThemedText';
 import { motion } from 'framer-motion'; 
-import microSuccessSound from "../assets/success.mp3";
+import microSuccessSound from "../assets/microSuccessSound.mp3";
 import '../App.css'; 
 
 export default function ExercisePage() {
