@@ -1,50 +1,209 @@
+/* shop.css */
+
 .shop-page {
-  padding: 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 20px;
 }
 
 .shop-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 18px;
 }
 
-.points {
-  font-weight: bold;
-  color: gold;
+.shop-header h1 {
+  margin: 0;
+  font-size: 34px;
+  letter-spacing: -0.02em;
+}
+
+.shop-sub {
+  margin: 6px 0 0;
+  opacity: 0.75;
+}
+
+.points-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(12px);
+}
+
+[data-theme] .points-pill {
+  background: rgba(255,255,255,0.06);
+}
+
+/* Progress */
+.shop-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 28px;
+  opacity: 0.9;
+}
+.shop-progress-bar {
+  flex: 1;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  background: rgba(255,255,255,0.35);
+}
+.shop-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(37,99,235,0.85), rgba(96,165,250,0.85));
+  transition: width 240ms ease;
+}
+
+.shop-section {
+  margin-top: 28px;
+}
+.shop-section h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  opacity: 0.95;
 }
 
 .shop-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
 }
 
+/* Card */
 .shop-card {
-  background: #111827;
-  border-radius: 16px;
+  position: relative;
+  border-radius: 18px;
+  border: 1px solid var(--border);
   padding: 16px;
-  text-align: center;
-  transition: transform 0.2s;
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  transform: translateZ(0);
 }
 
-.shop-card:hover {
-  transform: translateY(-4px);
+[data-theme] .shop-card {
+  background: rgba(255,255,255,0.05);
 }
 
-.shop-card.unlocked {
-  opacity: 0.6;
+.shop-card h3 {
+  margin: 10px 0 6px;
+  font-size: 18px;
+}
+
+.shop-card p {
+  margin: 0 0 12px;
+  opacity: 0.82;
+  line-height: 1.25rem;
+}
+
+.top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .preview {
-  font-size: 48px;
-  margin-bottom: 8px;
+  font-size: 34px;
+  line-height: 1;
 }
 
-button {
-  margin-top: 12px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: none;
+/* Buttons */
+.shop-btn {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-weight: 700;
+  border: 1px solid transparent;
   cursor: pointer;
+}
+
+.shop-btn-primary {
+  background: var(--btn-blue-bg);
+  color: white;
+}
+.shop-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.shop-btn-ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-color);
+}
+
+.equipped-label {
+  margin-top: 10px;
+  font-weight: 800;
+  opacity: 0.9;
+}
+
+/* Micro “juice” */
+.shop-card.pop {
+  animation: pop 220ms ease-out;
+}
+@keyframes pop {
+  0% { transform: scale(1); }
+  55% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+/* Sparkle overlay (subtle) */
+.sparkle {
+  position: absolute;
+  inset: -60px;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.10), transparent 40%),
+    radial-gradient(circle at 80% 65%, rgba(255,255,255,0.08), transparent 38%),
+    radial-gradient(circle at 55% 15%, rgba(255,255,255,0.06), transparent 42%);
+  opacity: 0;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+.shop-card:hover .sparkle {
+  opacity: 1;
+}
+
+/* Rarity badge */
+.rarity-badge {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.25);
+}
+
+/* Rarity glows (don’t overdo it) */
+.rarity-common { box-shadow: none; }
+.rarity-rare { box-shadow: 0 0 0 1px rgba(96,165,250,0.25), 0 12px 30px rgba(96,165,250,0.10); }
+.rarity-epic { box-shadow: 0 0 0 1px rgba(124,58,237,0.25), 0 12px 34px rgba(124,58,237,0.14); }
+.rarity-legendary { box-shadow: 0 0 0 1px rgba(249,115,22,0.25), 0 12px 38px rgba(249,115,22,0.16); }
+
+/* Badge tint */
+.rarity-badge.rarity-common { background: rgba(0,0,0,0.22); }
+.rarity-badge.rarity-rare { background: rgba(37,99,235,0.25); }
+.rarity-badge.rarity-epic { background: rgba(124,58,237,0.25); }
+.rarity-badge.rarity-legendary { background: rgba(249,115,22,0.25); }
+
+/* Equipped makes it obvious */
+.shop-card.equipped {
+  border-color: rgba(96,165,250,0.55);
+}
+
+/* Theme transitions */
+:root.theme-transition, :root.theme-transition * {
+  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
 }
